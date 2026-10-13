@@ -11,7 +11,11 @@
       name="description"
       content="The IEEE student branch at IIIT Delhi. Technical events, workshops, talks and competitions run by students, in affiliation with IEEE, Women in Engineering and the IEEE Computer Society."
     />
-    <meta name="theme-color" content="#060d15" />
+    <!-- Declared per scheme, so the browser chrome matches the page it is
+         framing rather than being painted the one ground that is wrong half
+         the time. -->
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#070c12" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
   </head>

@@ -1,6 +1,5 @@
 /** Collaboration cards and the logo marquee. */
 
-import { useSpotlight } from '@/hooks/useInteraction';
 import { cx, displayHost } from '@/utils/format';
 import { LogoMark } from '@/components/ui/Media';
 import { ArrowUpRightIcon } from '@/components/ui/Icons';
@@ -13,7 +12,6 @@ export function CollaborationCard({
   collaboration: Collaboration;
   className?: string;
 }) {
-  const { ref, onPointerMove } = useSpotlight<HTMLElement>();
   const host = displayHost(collaboration.website_url);
 
   const content = (
@@ -24,23 +22,21 @@ export function CollaborationCard({
 
       <div className="flex-1 space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold">{collaboration.name}</h3>
+          <h3 className="caps text-base leading-[1.1]">{collaboration.name}</h3>
           {collaboration.year && <span className="chip tabular">{collaboration.year}</span>}
         </div>
 
         {collaboration.collaboration_type && (
-          <p className="font-mono text-[0.625rem] tracking-wider text-accent uppercase">
-            {collaboration.collaboration_type}
-          </p>
+          <p className="mono text-signal">{collaboration.collaboration_type}</p>
         )}
 
         {collaboration.description && (
-          <p className="text-sm text-muted">{collaboration.description}</p>
+          <p className="text-sm leading-relaxed text-muted">{collaboration.description}</p>
         )}
       </div>
 
       {host && (
-        <span className="inline-flex items-center gap-1.5 font-mono text-[0.6875rem] text-faint transition-colors group-hover:text-accent">
+        <span className="mono inline-flex items-center gap-1.5 text-muted transition-colors group-hover:text-signal">
           {host}
           <ArrowUpRightIcon className="size-3.5" />
         </span>
@@ -48,17 +44,12 @@ export function CollaborationCard({
     </>
   );
 
-  const shared = cx(
-    'card card-interactive spotlight group flex h-full flex-col gap-4 p-5',
-    className,
-  );
+  const shared = cx('card card-interactive group flex h-full flex-col gap-4 p-5', className);
 
   // Only render an anchor when there is somewhere to go; a link to nowhere
   // is worse than a plain card.
   return collaboration.website_url ? (
     <a
-      ref={ref as React.Ref<HTMLAnchorElement>}
-      onPointerMove={onPointerMove}
       href={collaboration.website_url}
       target="_blank"
       rel="noopener noreferrer"
@@ -67,9 +58,7 @@ export function CollaborationCard({
       {content}
     </a>
   ) : (
-    <article ref={ref} onPointerMove={onPointerMove} className={shared}>
-      {content}
-    </article>
+    <article className={shared}>{content}</article>
   );
 }
 
@@ -87,15 +76,15 @@ export function CollaborationMarquee({ collaborations }: { collaborations: Colla
 
   return (
     <div
-      className="marquee relative overflow-hidden py-2"
+      className="marquee mask-fade-x relative overflow-hidden py-2"
       // Decorative duplication would be read twice by a screen reader; the
       // collaborations page lists them properly.
       aria-hidden="true"
     >
-      {/* Fade the ends so logos enter and leave rather than being cut off. */}
-      <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-[var(--surface-sunken)] to-transparent md:w-28" />
-      <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-[var(--surface-sunken)] to-transparent md:w-28" />
-
+      {/* The ends fade so logos enter and leave rather than being cut off.
+          Done with a mask rather than two overlaid gradients, so it works on
+          whichever band the marquee is placed on instead of having to match
+          that band's background colour. */}
       <ul className="marquee-track flex w-max items-center gap-10 md:gap-16">
         {items.map((collaboration, index) => (
           <li

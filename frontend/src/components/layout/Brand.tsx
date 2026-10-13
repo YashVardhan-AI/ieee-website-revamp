@@ -1,42 +1,63 @@
 /**
  * The IEEE IIIT Delhi wordmark.
  *
- * Drawn rather than bitmapped so it stays sharp at any size and follows the
- * theme. The mark itself is the IEEE diamond-and-kite form reduced to its
- * geometry: a rotated square with three signal bars across it, which is
- * recognisable at 28px where a detailed logo would turn to mush.
+ * The mark is the IEEE arrow-and-diamond form, drawn rather than bitmapped
+ * so it stays sharp at any size, and held in IEEE's own secondary blues
+ * (#001489 and #58B4E0) rather than in theme tokens - a logo that changes
+ * colour with the page is not a logo.
+ *
+ * The one thing that does move is which of the two blues carries the solid
+ * bars. IEEE dark blue on a navy or near-black band is about 1.3:1 and the
+ * mark simply disappears, so on dark grounds the bars take the light blue
+ * and the diamonds go to silk. That is a legibility fix, not a recolour:
+ * both values stay inside the brand palette.
  */
 
 import { Link } from 'react-router-dom';
 import { cx } from '@/utils/format';
 
-export function BrandMark({ className = 'size-9' }: { className?: string }) {
+/** IEEE secondary palette. */
+const IEEE_DARK_BLUE = '#001489';
+const IEEE_LIGHT_BLUE = '#58b4e0';
+const SILK = '#f7f8fa';
+
+export function BrandMark({
+  className = 'size-10',
+  tone = 'light',
+}: {
+  className?: string;
+  /** The ground the mark sits on, not the colour of the mark. */
+  tone?: 'light' | 'dark';
+}) {
+  const bars = tone === 'dark' ? IEEE_LIGHT_BLUE : IEEE_DARK_BLUE;
+  const diamonds = tone === 'dark' ? SILK : IEEE_LIGHT_BLUE;
+
   return (
-    <svg viewBox="0 0 40 40" className={className} aria-hidden="true" focusable="false">
-      <defs>
-        <linearGradient id="brand-mark-fill" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--brand)" />
-          <stop offset="100%" stopColor="var(--accent)" />
-        </linearGradient>
-      </defs>
+    <svg
+      viewBox="0 0 100 100"
+      fill="none"
+      className={className}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {/* Top diamond */}
+      <polygon points="50,2 62,14 50,26 38,14" fill={diamonds} />
 
-      {/* The diamond. */}
-      <rect
-        x="7.5"
-        y="7.5"
-        width="25"
-        height="25"
-        rx="4"
-        transform="rotate(45 20 20)"
-        fill="url(#brand-mark-fill)"
-      />
+      {/* Upper arrow bar */}
+      <polygon points="20,30 36,30 48,42 80,42 92,36 80,30 36,30" fill={bars} />
+      <polygon points="20,30 36,30 36,42 24,42" fill={diamonds} />
 
-      {/* Three bars reading as a signal trace across the diamond. */}
-      <g stroke="var(--text-on-brand)" strokeWidth="2.2" strokeLinecap="round" opacity="0.95">
-        <path d="M13 16.5h14" />
-        <path d="M13 20h9" />
-        <path d="M13 23.5h14" />
-      </g>
+      {/* Centre bar, with the diamond cut out of it */}
+      <polygon points="8,46 92,46 92,54 8,54" fill={bars} />
+      <polygon points="8,46 24,46 8,54" fill={diamonds} />
+      <polygon points="50,46 58,50 50,54 42,50" fill={diamonds} />
+
+      {/* Lower arrow bar */}
+      <polygon points="20,58 36,58 48,58 80,58 92,64 80,70 36,70" fill={bars} />
+      <polygon points="20,58 36,58 36,70 24,70" fill={diamonds} />
+
+      {/* Bottom diamond */}
+      <polygon points="50,74 62,86 50,98 38,86" fill={diamonds} />
     </svg>
   );
 }
@@ -44,23 +65,37 @@ export function BrandMark({ className = 'size-9' }: { className?: string }) {
 interface BrandProps {
   /** Hide the text on narrow screens, where the mark alone is enough. */
   compact?: boolean;
+  tone?: 'light' | 'dark';
   className?: string;
 }
 
-export function Brand({ compact = false, className }: BrandProps) {
+/**
+ * The mark plus the branch name, linking home.
+ *
+ * The institute's name leads and the branch sits under it, because on this
+ * campus "IIIT Delhi" is what identifies the page and "IEEE Student Branch"
+ * is what qualifies it.
+ */
+export function Brand({ compact = false, tone = 'light', className }: BrandProps) {
   return (
     <Link
       to="/"
-      className={cx('group flex items-center gap-2.5', className)}
-      aria-label="IEEE IIIT Delhi, home"
+      className={cx('group flex items-center gap-3 py-2', className)}
+      aria-label="IEEE Student Branch, IIIT Delhi — home"
     >
-      <BrandMark className="size-9 transition-transform duration-500 ease-[var(--ease-spring)] group-hover:rotate-[8deg]" />
+      <BrandMark
+        tone={tone}
+        className="size-10 shrink-0 transition-transform duration-500 ease-[var(--ease-spring)] group-hover:rotate-[8deg]"
+      />
       <span className={cx('leading-none', compact && 'hidden sm:block')}>
-        <span className="block font-display text-[1.0625rem] font-bold tracking-tight text-strong">
-          IEEE
-        </span>
-        <span className="block font-mono text-[0.625rem] tracking-[0.16em] text-muted uppercase">
-          IIIT Delhi
+        <span className="wide block text-[0.9375rem] tracking-[-0.01em]">IIIT Delhi</span>
+        <span
+          className={cx(
+            'mt-1 block font-sans text-[0.625rem] font-normal tracking-[0.15em] normal-case',
+            tone === 'dark' ? 'text-on-contrast/60' : 'text-muted',
+          )}
+        >
+          IEEE Student Branch
         </span>
       </span>
     </Link>

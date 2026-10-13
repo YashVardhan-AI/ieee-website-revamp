@@ -381,3 +381,110 @@ export const GlobeIcon = (props: IconProps) => (
     <path d="M3.5 9h17M3.5 15h17M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
   </Svg>
 );
+
+/* --- Activity icons ------------------------------------------------------
+   Larger, squarer and deliberately unlike the 24px UI glyphs above: these
+   label the six areas of work on the landing page, where they are the only
+   drawing on a wall of type.
+
+   Each stroke carries `pathLength={1}`, which normalises every path to a
+   dash length of 1 regardless of its real length. That is what lets a
+   single CSS rule (`.ico path.d`, in index.css) draw all of them in at the
+   same rate when the containing `.cell` is hovered or focused - without it,
+   a long path and a short one would draw at wildly different speeds.
+   -------------------------------------------------------------------- */
+
+function ActivitySvg({
+  className = 'size-16',
+  children,
+}: IconProps & { children: React.ReactNode }) {
+  return (
+    <svg
+      viewBox="0 0 56 56"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="square"
+      strokeLinejoin="miter"
+      className={`ico ${className}`}
+      aria-hidden="true"
+      focusable="false"
+    >
+      {children}
+    </svg>
+  );
+}
+
+export const WingRoboticsIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M10 22h36v24H10zM28 22V12" />
+    <path className="d" pathLength={1} d="M24 10h8v4h-8zM4 30v8M52 30v8" />
+    <path className="d" pathLength={1} d="M19 31v4M37 31v4M21 41h14" />
+  </ActivitySvg>
+);
+
+export const WingAiIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path
+      className="d"
+      pathLength={1}
+      d="M12 16 28 28 12 40M12 16 28 44M12 28h16M12 40 28 16M28 28l16-12M28 28l16 12M28 44l16-4M28 16l16 12"
+    />
+    <path
+      className="d"
+      pathLength={1}
+      d="M9 13h6v6H9zM9 25h6v6H9zM9 37h6v6H9zM25 13h6v6h-6zM25 25h6v6h-6zM25 41h6v6h-6zM41 13h6v6h-6zM41 37h6v6h-6z"
+    />
+  </ActivitySvg>
+);
+
+export const WingCircuitsIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M17 17h22v22H17z" />
+    <path
+      className="d"
+      pathLength={1}
+      d="M23 10v7M33 10v7M23 39v7M33 39v7M10 23h7M10 33h7M39 23h7M39 33h7"
+    />
+    <path className="d" pathLength={1} d="M24 24h8v8h-8z" />
+  </ActivitySvg>
+);
+
+export const WingResearchIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M10 8v40h38" />
+    <path className="d" pathLength={1} d="M16 38 26 26l8 6 14-20" />
+    <path className="d" pathLength={1} d="M42 12h6v6" />
+  </ActivitySvg>
+);
+
+export const WingCodeIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M20 16 8 28l12 12M36 16l12 12-12 12" />
+    <path className="d" pathLength={1} d="M32 10 24 46" />
+  </ActivitySvg>
+);
+
+export const WingStudioIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M8 44C8 14 48 42 48 12" />
+    <path className="d" pathLength={1} d="M8 44h10M38 12h10" />
+    <path className="d" pathLength={1} d="M6 42h4v4H6zM46 10h4v4h-4z" />
+  </ActivitySvg>
+);
+
+export const WingTalksIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M28 8v24M22 20a6 6 0 0 0 12 0V14a6 6 0 0 0-12 0z" />
+    <path className="d" pathLength={1} d="M14 26a14 14 0 0 0 28 0" />
+    <path className="d" pathLength={1} d="M20 46h16M28 38v8" />
+  </ActivitySvg>
+);
+
+export const WingCompeteIcon = (props: IconProps) => (
+  <ActivitySvg {...props}>
+    <path className="d" pathLength={1} d="M18 10h20v12a10 10 0 0 1-20 0z" />
+    <path className="d" pathLength={1} d="M18 13h-6v5a6 6 0 0 0 6 6M38 13h6v5a6 6 0 0 1-6 6" />
+    <path className="d" pathLength={1} d="M28 32v8M20 46h16" />
+  </ActivitySvg>
+);
