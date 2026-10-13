@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.content.store import ContentError
-from app.content.sync import ContentSync
+from app.content.sync import SECTION_ORDER, ContentSync, resolve_sections
 from app.models.content import (
     Alumnus,
     BlogCategory,
@@ -362,3 +362,127 @@ def test_an_exported_draft_stays_a_draft(db: Session, content_dir: Path, tmp_pat
     ContentSync(db, destination).export_all()
 
     assert "published: false" in (destination / "blogs" / "a-draft.md").read_text()
+
+
+# ---------------------------------------------------------------------------
+# Syncing one section at a time
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("typed", "expected"),
+    [
+        ("members", "members"),
+        ("team", "members"),
+        ("Team", "members"),
+        ("people", "members"),
+        ("blogs", "blogs"),
+        ("posts", "blogs"),
+        ("sponsors", "collaborations"),
+        ("ieee_day", "ieee-day"),
+        ("IEEE-DAY", "ieee-day"),
+    ],
+)
+def test_a_section_can_be_named_the_way_people_say_it(typed, expected):
+    assert resolve_sections([typed]) == [expected]
+
+
+def test_sections_run_in_dependency_order_whatever_order_they_are_given():
+    # Posts name the category they belong to, so blogs cannot end up running
+    # after whatever the caller happened to type first.
+    assert resolve_sections(["members", "blogs"]) == resolve_sections(["blogs", "members"])
+
+
+def test_no_sections_means_the_whole_tree():
+    assert resolve_sections(None) == list(SECTION_ORDER)
+    assert resolve_sections([]) == list(SECTION_ORDER)
+
+
+def test_an_unknown_section_names_the_ones_that_exist():
+    with pytest.raises(ContentError, match="members"):
+        resolve_sections(["membres"])
+
+
+def test_exporting_one_section_leaves_the_other_files_alone(
+    db: Session, content_dir: Path, tmp_path: Path
+):
+    ContentSync(db, content_dir).import_all()
+    destination = tmp_path / "exported"
+    ContentSync(db, destination).export_all()
+    events_before = (destination / "events.yaml").read_text()
+
+    # Something changed in the dashboard, in two different sections.
+    db.scalar(select(TeamMember).where(TeamMember.name == "Anshul Kumar Singh")).position = "Chair"
+    db.scalars(select(Event)).first().description = "Edited."
+    db.commit()
+
+    ContentSync(db, destination).export_sections(["members"])
+
+    assert "Chair" in (destination / "team.yaml").read_text()
+    # The events file is untouched, so the diff is only ever what was asked for.
+    assert (destination / "events.yaml").read_text() == events_before
+
+
+def test_importing_one_section_leaves_the_other_tables_alone(db: Session, content_dir: Path):
+    ContentSync(db, content_dir).import_all()
+    (content_dir / "team.yaml").write_text(
+        "- name: Anshul Kumar Singh\n  position: Vice Chair\n  category: core\n"
+    )
+    (content_dir / "alumni.yaml").write_text("- name: A Graduate\n  current_organization: Globex\n")
+
+    ContentSync(db, content_dir).import_sections(["members"])
+
+    member = db.scalar(select(TeamMember).where(TeamMember.slug == "anshul-kumar-singh"))
+    assert member.position == "Vice Chair"
+    # The alumni file changed too, but nobody asked for it to be loaded.
+    alumnus = db.scalar(select(Alumnus).where(Alumnus.slug == "a-graduate"))
+    assert alumnus.current_organization == "Acme"
+
+
+def test_syncing_blogs_covers_categories_and_posts(db: Session, content_dir: Path, tmp_path: Path):
+    ContentSync(db, content_dir).import_all()
+    destination = tmp_path / "exported"
+
+    ContentSync(db, destination).export_sections(["blogs"])
+
+    assert (destination / "blogs" / "categories.yaml").is_file()
+    assert (destination / "blogs" / "an-article.md").is_file()
+    assert not (destination / "team.yaml").exists()
+
+
+def test_a_post_deleted_in_the_dashboard_loses_its_file(
+    db: Session, content_dir: Path, tmp_path: Path
+):
+    ContentSync(db, content_dir).import_all()
+    destination = tmp_path / "exported"
+    ContentSync(db, destination).export_all()
+    assert (destination / "blogs" / "a-draft.md").is_file()
+
+    db.delete(db.scalar(select(BlogPost).where(BlogPost.slug == "a-draft")))
+    db.commit()
+
+    report = ContentSync(db, destination).export_sections(["blogs"])
+
+    # Left on disk it would be reimported on the next run, undoing the delete.
+    assert not (destination / "blogs" / "a-draft.md").exists()
+    assert (destination / "blogs" / "an-article.md").is_file()
+    assert report.deleted == {"blog post": 1}
+
+
+def test_an_empty_blog_table_does_not_empty_the_blogs_directory(
+    db: Session, content_dir: Path, tmp_path: Path
+):
+    ContentSync(db, content_dir).import_all()
+    destination = tmp_path / "exported"
+    ContentSync(db, destination).export_all()
+
+    for post in db.scalars(select(BlogPost)).all():
+        db.delete(post)
+    db.commit()
+
+    ContentSync(db, destination).export_sections(["blogs"])
+
+    # No posts at all is far more likely to be the wrong database than a
+    # decision to delete every article, so the files stay put.
+    assert (destination / "blogs" / "an-article.md").is_file()
+    assert (destination / "blogs" / "a-draft.md").is_file()

@@ -7,10 +7,16 @@ the admin dashboard can be reviewed and committed like any other change.
 Import is additive by default: rows that no longer appear in the files are
 left alone unless `--prune` is passed, so running the importer can never
 quietly delete content someone added through the dashboard.
+
+Both directions can be narrowed to one section of the tree. That is what
+makes the dashboard usable as a drafting tool: edit the roster all afternoon,
+then pull back just the roster, leaving everything else in `content/`
+untouched and the diff small enough to actually read.
 """
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -88,6 +94,20 @@ class SyncReport:
         return rows
 
 
+def _header(body: str, section: str) -> str:
+    """A file header that says how this file travels to and from the database.
+
+    These files are the editing surface for people who may never open the
+    code, so each one carries its own instructions - including the warning
+    that a sync regenerates it, since comments written here do not survive.
+    """
+    return (
+        f"{body}\n"
+        f"Edit here, then `just content-import {section}`. Edit in the dashboard,\n"
+        f"then `just dbsync {section}` to pull it back - which rewrites this file."
+    )
+
+
 def _validate[T](model: type[T], data: dict[str, Any], source: str, index: int | None = None) -> T:
     """Validate one entry, reporting where in the file the problem is."""
     try:
@@ -111,8 +131,75 @@ def _apply(record: Any, values: dict[str, Any]) -> bool:
     return changed
 
 
+# The addressable slices of the content tree, in the order they must be
+# imported: blog posts reference categories, so `blogs` covers both and comes
+# before anything that could depend on it.
+SECTION_ORDER = (
+    "settings",
+    "blogs",
+    "members",
+    "alumni",
+    "collaborations",
+    "events",
+    "ieee-day",
+)
+
+SECTION_FILES = {
+    "settings": "site.yaml",
+    "blogs": "blogs/categories.yaml and blogs/*.md",
+    "members": "team.yaml",
+    "alumni": "alumni.yaml",
+    "collaborations": "collaborations.yaml",
+    "events": "events.yaml",
+    "ieee-day": "ieee-day.yaml",
+}
+
+# What people actually type. Nobody should have to remember whether the
+# section is called "team" or "members".
+SECTION_ALIASES = {
+    "team": "members",
+    "member": "members",
+    "roster": "members",
+    "people": "members",
+    "blog": "blogs",
+    "post": "blogs",
+    "posts": "blogs",
+    "articles": "blogs",
+    "alumnus": "alumni",
+    "collab": "collaborations",
+    "collabs": "collaborations",
+    "collaboration": "collaborations",
+    "sponsors": "collaborations",
+    "partners": "collaborations",
+    "event": "events",
+    "ieeeday": "ieee-day",
+    "site": "settings",
+    "setting": "settings",
+}
+
+
+def resolve_sections(names: Sequence[str] | None) -> list[str]:
+    """Turn what was typed on the command line into section names.
+
+    An empty selection means the whole tree. Whatever order the names are
+    given in, the result is in dependency order, so `import blogs members`
+    and `import members blogs` do the same thing.
+    """
+    if not names:
+        return list(SECTION_ORDER)
+
+    chosen: set[str] = set()
+    for raw in names:
+        key = raw.strip().lower().replace("_", "-")
+        key = SECTION_ALIASES.get(key, key)
+        if key not in SECTION_ORDER:
+            raise ContentError(f"Unknown section '{raw}'. Pick from: {', '.join(SECTION_ORDER)}.")
+        chosen.add(key)
+    return [name for name in SECTION_ORDER if name in chosen]
+
+
 class ContentSync:
-    """Imports and exports the whole `content/` tree."""
+    """Imports and exports `content/`, in whole or one section at a time."""
 
     def __init__(self, db: Session, root: Path) -> None:
         self.db = db
@@ -121,18 +208,32 @@ class ContentSync:
     # -- import ------------------------------------------------------------
 
     def import_all(self, *, prune: bool = False, dry_run: bool = False) -> SyncReport:
+        """Load the whole of `content/` into the database."""
+        return self.import_sections(None, prune=prune, dry_run=dry_run)
+
+    def import_sections(
+        self,
+        sections: Sequence[str] | None,
+        *,
+        prune: bool = False,
+        dry_run: bool = False,
+    ) -> SyncReport:
+        """Load the named sections of `content/`; all of it when none given."""
         report = SyncReport()
         if not self.paths.root.is_dir():
             raise ContentError(f"No content directory at {self.paths.root}")
 
-        self._import_settings(report)
-        self._import_blog_categories(report, prune=prune)
-        self._import_blog_posts(report, prune=prune)
-        self._import_team(report, prune=prune)
-        self._import_alumni(report, prune=prune)
-        self._import_collaborations(report, prune=prune)
-        self._import_events(report, prune=prune)
-        self._import_ieee_day(report, prune=prune)
+        importers = {
+            "settings": self._import_settings,
+            "blogs": self._import_blogs,
+            "members": self._import_team,
+            "alumni": self._import_alumni,
+            "collaborations": self._import_collaborations,
+            "events": self._import_events,
+            "ieee-day": self._import_ieee_day,
+        }
+        for name in resolve_sections(sections):
+            importers[name](report, prune=prune)
 
         if dry_run:
             self.db.rollback()
@@ -140,7 +241,15 @@ class ContentSync:
             self.db.commit()
         return report
 
-    def _import_settings(self, report: SyncReport) -> None:
+    def _import_blogs(self, report: SyncReport, *, prune: bool) -> None:
+        """Categories first: a post names the category it belongs to."""
+        self._import_blog_categories(report, prune=prune)
+        self._import_blog_posts(report, prune=prune)
+
+    def _import_settings(self, report: SyncReport, *, prune: bool = False) -> None:
+        # Settings are a fixed set of keys rather than a list of rows, so
+        # there is nothing here for --prune to act on.
+        del prune
         values = read_yaml_mapping(self.paths.site)
         for key, value in values.items():
             text = "" if value is None else str(value)
@@ -479,19 +588,35 @@ class ContentSync:
     # -- export ------------------------------------------------------------
 
     def export_all(self) -> SyncReport:
-        """Write the database out to `content/`."""
+        """Write the whole database out to `content/`."""
+        return self.export_sections(None)
+
+    def export_sections(self, sections: Sequence[str] | None) -> SyncReport:
+        """Write the named sections out to `content/`; all of them when none.
+
+        Narrowing matters here in a way it does not for import: export
+        rewrites whole files, so pulling the roster back should not also
+        reformat every blog post and reorder the events list.
+        """
         report = SyncReport()
         self.paths.root.mkdir(parents=True, exist_ok=True)
 
-        self._export_settings(report)
+        exporters = {
+            "settings": self._export_settings,
+            "blogs": self._export_blogs,
+            "members": self._export_team,
+            "alumni": self._export_alumni,
+            "collaborations": self._export_collaborations,
+            "events": self._export_events,
+            "ieee-day": self._export_ieee_day,
+        }
+        for name in resolve_sections(sections):
+            exporters[name](report)
+        return report
+
+    def _export_blogs(self, report: SyncReport) -> None:
         self._export_blog_categories(report)
         self._export_blog_posts(report)
-        self._export_team(report)
-        self._export_alumni(report)
-        self._export_collaborations(report)
-        self._export_events(report)
-        self._export_ieee_day(report)
-        return report
 
     def _export_settings(self, report: SyncReport) -> None:
         values = {
@@ -501,9 +626,10 @@ class ContentSync:
         write_yaml(
             self.paths.site,
             values,
-            header=(
+            header=_header(
                 "Editable site copy and links.\n"
-                "Also editable in the admin dashboard under Settings."
+                "Also editable in the admin dashboard under Settings.",
+                "settings",
             ),
         )
         report.record("settings", "updated")
@@ -518,7 +644,7 @@ class ContentSync:
                 _compact({"name": c.name, "slug": c.slug, "description": c.description})
                 for c in rows
             ],
-            header="Blog categories. List order is display order.",
+            header=_header("Blog categories. List order is display order.", "blogs"),
         )
         report.record("blog category", "updated")
 
@@ -550,6 +676,17 @@ class ContentSync:
             write_markdown(self.paths.blogs_dir / f"{post.slug}.md", meta, post.body)
             report.record("blog post", "updated")
 
+        # A post deleted in the dashboard has to take its file with it, or
+        # the next import would bring it straight back. Skipped entirely when
+        # the database holds no posts at all, since that is far more likely to
+        # be the wrong database than a decision to delete every article.
+        if posts:
+            written = {f"{post.slug}.md" for post in posts}
+            for path in self.paths.blog_posts():
+                if path.name not in written:
+                    path.unlink()
+                    report.record("blog post", "deleted")
+
     def _export_team(self, report: SyncReport) -> None:
         members = self.db.scalars(
             select(TeamMember).order_by(TeamMember.sort_order, TeamMember.name)
@@ -577,10 +714,10 @@ class ContentSync:
                 )
                 for m in members
             ],
-            header=(
+            header=_header(
                 "Team roster. List order is display order within each category.\n"
-                "Categories: faculty, core, executive, mentor.\n"
-                "Run `just content-import` after editing."
+                "Categories: faculty, core, executive, mentor.",
+                "members",
             ),
         )
         for _ in members:
@@ -610,7 +747,7 @@ class ContentSync:
                 )
                 for a in alumni
             ],
-            header="Alumni. Only publicly shareable details belong here.",
+            header=_header("Alumni. Only publicly shareable details belong here.", "alumni"),
         )
         for _ in alumni:
             report.record("alumnus", "updated")
@@ -636,7 +773,9 @@ class ContentSync:
                 )
                 for c in rows
             ],
-            header="Industry collaborations. List order is display order.",
+            header=_header(
+                "Industry collaborations. List order is display order.", "collaborations"
+            ),
         )
         for _ in rows:
             report.record("collaboration", "updated")
@@ -665,7 +804,7 @@ class ContentSync:
                 )
                 for e in events
             ],
-            header="Events, newest first. Dates are YYYY-MM-DD.",
+            header=_header("Events, newest first. Dates are YYYY-MM-DD.", "events"),
         )
         for _ in events:
             report.record("event", "updated")
@@ -706,7 +845,7 @@ class ContentSync:
                 )
                 for e in editions
             ],
-            header="IEEE Day editions, newest first.",
+            header=_header("IEEE Day editions, newest first.", "ieee-day"),
         )
         for _ in editions:
             report.record("ieee day", "updated")

@@ -115,8 +115,8 @@ between terms is content, not code.
 
 ## Updating content
 
-There are two ways to change what the site says, and they operate on the same
-data.
+There are two ways to change what the site says. They operate on the same
+data, and a third command moves work from one to the other.
 
 ### 1. The dashboard
 
@@ -145,7 +145,6 @@ Edit a file, then:
 just content-import     # load content/ into the database
 just content-check      # preview what an import would change
 just content-validate   # check the files without touching the database
-just content-export     # write the database back out to content/
 ```
 
 The database is what the site serves; `content/` is the version-controlled
@@ -160,8 +159,36 @@ uv --project backend run ieee-content import --prune
 Pruning also refuses to empty a table when the corresponding file is missing
 or empty, so a mistyped path cannot wipe the roster.
 
-Round-tripping works in both directions: edit in the dashboard, run
-`just content-export`, and review the diff like any other change.
+### 3. The dashboard, then `just dbsync`
+
+The two surfaces are not alternatives. Edit in the dashboard — which is far
+faster for reordering a roster or fixing a typo — and then pull the result
+back into `content/`, where it can be reviewed and committed like any other
+change:
+
+```bash
+just dbsync             # everything
+just dbsync members     # just the roster
+just dbsync blogs       # categories and every post
+just dbsync members alumni
+```
+
+Nothing leaves the database until you run it, so the dashboard is usable as
+a drafting tool: change things all afternoon, look at them on the site, and
+decide afterwards what becomes permanent.
+
+The sections are `settings`, `blogs`, `members`, `alumni`, `collaborations`,
+`events` and `ieee-day`; `team`, `posts`, `sponsors` and similar names work
+too. `just content-import` takes the same names, so one section can be pushed
+as well as pulled.
+
+Naming a section matters because a sync **regenerates whole files**. Pulling
+the roster back should not also reformat every blog post, and a one-file diff
+is one you will actually read. For the same reason, comments you add inside a
+generated file do not survive a sync — the header of each file says so.
+
+`just dbsync` prints which files changed, so a run that did nothing says so
+rather than leaving you to check.
 
 **Conventions worth knowing**
 
@@ -230,8 +257,8 @@ Round-tripping works in both directions: edit in the dashboard, run
 | `just db-migrate` | Apply pending migrations |
 | `just db-migration "message"` | Generate a migration from model changes |
 | `just db-reset` | Rebuild the database from scratch (destructive, prompts) |
-| `just content-import` | Load `content/` into the database |
-| `just content-export` | Write the database back out to `content/` |
+| `just content-import [section]` | Load `content/` into the database |
+| `just dbsync [section]` | Pull the database back into `content/` |
 | `just admin` | Create or update the administrator |
 | `just secret` | Print a fresh random signing key |
 | `just logs` | Tail container logs |
