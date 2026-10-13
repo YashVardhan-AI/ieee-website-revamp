@@ -140,17 +140,43 @@ db-reset:
 # Content (the scriptable way to update the site)
 # ---------------------------------------------------------------------------
 
-# Load everything under content/ into the database (idempotent upsert).
-content-import:
-    {{uv}} run ieee-content import
+# Sections: settings, blogs, members, alumni, collaborations, events, ieee-day
+# (team, posts, sponsors and similar names work too). With no section it syncs
+# everything; with one it rewrites only that section's files, which keeps the
+# diff small enough to actually read.
+#
+#   just dbsync                  everything
+#   just dbsync members          just the roster
+#   just dbsync blogs            categories and every post
+#   just dbsync members alumni   more than one at a time
+#
+# Pull the database back into content/, so dashboard edits become real data.
+dbsync *sections:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    {{uv}} run ieee-content export {{sections}}
+    git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+    changed=$(git status --short -- content/)
+    echo ""
+    if [ -n "$changed" ]; then
+        echo "Changed in content/ - review the diff, then commit:"
+        echo "$changed"
+    else
+        echo "content/ already matched the database. Nothing changed."
+    fi
 
-# Write the database back out to content/ so edits can be committed.
-content-export:
-    {{uv}} run ieee-content export
+# Takes the same sections as `just dbsync`; all of them when none is given.
+# Load content/ into the database (idempotent upsert).
+content-import *sections:
+    {{uv}} run ieee-content import {{sections}}
+
+# The other name for `just dbsync`, kept for symmetry with content-import.
+content-export *sections:
+    @just dbsync {{sections}}
 
 # Report what `just content-import` would change, without writing anything.
-content-check:
-    {{uv}} run ieee-content import --dry-run
+content-check *sections:
+    {{uv}} run ieee-content import --dry-run {{sections}}
 
 # Validate content/ against the schemas without touching the database.
 content-validate:

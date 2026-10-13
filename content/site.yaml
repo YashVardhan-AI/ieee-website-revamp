@@ -7,11 +7,24 @@
 # --- Identity -------------------------------------------------------------
 site_name: "IEEE IIIT Delhi"
 site_tagline: "Student Branch"
-hero_heading: "Technology for humanity, built by students."
+
+# The headline takes two characters of markup: a line break breaks the line,
+# and *asterisks* around a word give it the halftone-dot treatment.
+hero_heading: |-
+  Technology for
+  *humanity*,
+  built by students.
 hero_subheading: >-
   The IEEE student branch at IIIT Delhi, where the institute's biggest
   technical events are imagined, engineered and run.
-hero_eyebrow: "In affiliation with IEEE, WIE and Computer Society"
+hero_eyebrow: "IEEE Student Branch · IIIT Delhi"
+
+# Both optional, and both hidden while empty rather than falling back to
+# something plausible. `hero_meta` sits in the middle of the status line
+# above the headline; `hero_status` sits at its right with a blinking marker,
+# for something that is true right now ("Induction open", say).
+hero_meta: ""
+hero_status: ""
 
 # --- About ----------------------------------------------------------------
 about_short: >-
@@ -42,12 +55,20 @@ about_body: |
 
 # --- Membership -----------------------------------------------------------
 join_url: "https://forms.gle/5xoKNbj6moQpRn2o9"
-join_heading: "Become part of the community."
+join_heading: |-
+  Become part of
+  the *community.*
+join_body: >-
+  Membership runs through the IEEE student branch form. It takes a couple of
+  minutes, and the branch follows up over email.
+
+# One perk per line, as "Short title | the sentence under it". A line with no
+# pipe is treated as a title on its own.
 join_perks: |
-  Eligibility for IEEE scholarships, grants and awards.
-  Direct access to faculty members across departments.
-  Conversations with distinguished people from industry and academia.
-  Ownership of the institute's flagship technical events.
+  IEEE scholarships and grants | Eligibility for IEEE scholarships, grants and awards.
+  Faculty across departments | Direct access to faculty members across every department.
+  Industry and academia | Conversations with distinguished people from industry and academia.
+  The institute's flagship events | Ownership of the biggest technical events IIIT Delhi runs.
 
 # --- Contact --------------------------------------------------------------
 contact_email: "ieee@iiitd.ac.in"
@@ -70,6 +91,24 @@ institute_url: "https://iiitd.ac.in/"
 ieee_url: "https://www.ieee.org/"
 wie_url: "https://www.wie.ieee.org/"
 compsoc_url: "https://www.computer.org/"
+
+# --- Testimonials ---------------------------------------------------------
+# One per line, as "The quote | Name | Role". Split from the right, so the
+# quote itself may contain a pipe. A line missing a name or a role is
+# skipped, and the whole section is hidden while this is empty - which is
+# why it ships empty rather than carrying invented quotes.
+#
+# For example:
+#   I came for the free pizza and stayed for the soldering iron. | A. Member | ECE, Robotics
+testimonials: ""
+
+# --- FAQ ------------------------------------------------------------------
+# One per line, as "The question? | the answer". Split on the first pipe
+# only, so the answer may contain pipes. Hidden while empty.
+#
+# For example:
+#   Do I need to be in ECE? | No. Members come from every programme.
+faqs: ""
 
 # --- SEO ------------------------------------------------------------------
 meta_description: >-

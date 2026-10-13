@@ -261,6 +261,36 @@ class AlumnusUpdate(BaseModel):
     sort_order: int | None = None
 
 
+class TeamMemberGraduate(BaseModel):
+    """Move a current member onto the alumni list.
+
+    Every field is optional. Left unset, each one is either copied from the
+    member's own record or worked out from it, so the ordinary case is one
+    click with nothing to type; anything typed here wins over what would
+    have been derived.
+    """
+
+    graduation_year: int | None = Field(default=None, ge=1990, le=2100)
+    degree: str | None = Field(default=None, max_length=120)
+    branch: str | None = Field(default=None, max_length=120)
+    current_role: str | None = Field(default=None, max_length=200)
+    current_organization: str | None = Field(default=None, max_length=200)
+    ieee_position: str | None = Field(default=None, max_length=160)
+    slug: str | None = Field(default=None, max_length=160)
+    is_featured: bool = False
+    # What becomes of the roster entry. Deactivating is the default because
+    # it is reversible and keeps the record; removal is neither.
+    remove_from_team: bool = False
+
+
+class GraduationResult(BaseModel):
+    """What graduating a member did, for the admin to confirm at a glance."""
+
+    alumnus: AlumnusAdmin
+    team_member_removed: bool
+    detail: str
+
+
 # ---------------------------------------------------------------------------
 # Collaborations
 # ---------------------------------------------------------------------------

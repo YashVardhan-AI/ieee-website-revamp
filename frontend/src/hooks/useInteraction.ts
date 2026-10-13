@@ -1,13 +1,13 @@
 /**
- * Small interaction primitives: motion preference, pointer spotlight,
- * count-up and scroll progress.
+ * Small interaction primitives: motion preference, count-up, scroll
+ * progress and the odds and ends a menu or dialog needs.
  *
  * Each one is cheap and degrades to a sensible static state, so a visitor
  * who has asked for reduced motion sees a complete page rather than a
  * half-animated one.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Whether the visitor has asked the operating system to reduce motion.
@@ -29,32 +29,6 @@ export function useReducedMotion(): boolean {
   }, []);
 
   return reduced;
-}
-
-/**
- * Track the pointer within an element as CSS custom properties.
- *
- * Writing to custom properties lets the highlight itself be pure CSS, which
- * keeps this off the main thread's paint path. Disabled under reduced motion
- * and never attached on touch-only devices, where there is no hover.
- */
-export function useSpotlight<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const reducedMotion = useReducedMotion();
-
-  const onPointerMove = useCallback(
-    (event: React.PointerEvent<T>) => {
-      if (reducedMotion || event.pointerType === 'touch') return;
-      const element = ref.current;
-      if (!element) return;
-      const bounds = element.getBoundingClientRect();
-      element.style.setProperty('--mx', `${event.clientX - bounds.left}px`);
-      element.style.setProperty('--my', `${event.clientY - bounds.top}px`);
-    },
-    [reducedMotion],
-  );
-
-  return { ref, onPointerMove };
 }
 
 /**

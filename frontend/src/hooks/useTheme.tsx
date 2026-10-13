@@ -66,9 +66,33 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [choice]);
 
   // Keep the browser UI (address bar, form controls) in step with the page.
+  //
+  // `index.html` ships two `theme-color` tags scoped with `prefers-color-scheme`
+  // so the very first paint - before this runs - already matches. Those cannot
+  // express an explicit choice, though: a visitor on a dark OS who picks the
+  // light theme would still get dark browser chrome. So once JavaScript is
+  // running, this takes ownership: the media-scoped tags are dropped and a
+  // single unscoped tag reflects the resolved theme.
+  //
+  // The colour is read from the page's own surface token rather than written
+  // out again here, so it cannot drift from the palette the way a hard-coded
+  // hex pair silently did when the palette changed.
   useEffect(() => {
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute('content', resolved === 'dark' ? '#060d15' : '#f6f8fb');
+    document
+      .querySelectorAll('meta[name="theme-color"][media]')
+      .forEach((scoped) => scoped.remove());
+
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]:not([media])');
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'theme-color';
+      document.head.appendChild(meta);
+    }
+
+    const surface = getComputedStyle(document.documentElement)
+      .getPropertyValue('--surface-page')
+      .trim();
+    if (surface) meta.setAttribute('content', surface);
   }, [resolved]);
 
   const setChoice = useCallback((next: ThemeChoice) => {

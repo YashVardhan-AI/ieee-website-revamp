@@ -1,405 +1,216 @@
 /**
  * The landing hero.
  *
- * The visual idea is a circuit board coming to life: a plated grid, signal
- * traces whose pulses travel along them, copper pads and a part footprint,
- * and glows where the board is lit. It responds to two things the visitor
- * does - the pointer lights the traces under it, and scrolling moves the
- * layers at different rates so the board sits behind the text rather than
- * on it.
+ * The idea is the branch's own: noise in, signal out. The headline sits on
+ * an oscilloscope trace that is chaotic at the top of the page and resolves
+ * into a clean waveform as you scroll past it, so the thing the branch says
+ * it does is the thing the page does while you read it.
  *
- * The cost of all that is deliberately small. The traces are SVG and CSS
- * with no JavaScript animation loop; the pointer reveal is a mask driven by
- * two custom properties; the parallax is one spring per layer. Everything
- * stops dead under `prefers-reduced-motion`.
+ * Everything else is deliberately flat and printed - a rule above and below
+ * the status line, graph-paper grid, film grain, and a photograph treated as
+ * ink that returns to colour under the pointer. There are no gradients and
+ * no soft shadows anywhere in it.
+ *
+ * The headline is authored in site settings, so the branch controls it. Two
+ * characters are markup: `\n` breaks a line, and `*text*` takes the halftone
+ * treatment. See `Words` in ui/Display.
  */
 
-import { Fragment } from 'react';
 import { motion, useReducedMotion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { useCountUp, useScrolledPast, useSpotlight } from '@/hooks/useInteraction';
-import { usePageParallax, useScrollAway } from '@/hooks/useScrollMotion';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
-import { compactNumber } from '@/utils/format';
 import { Magnetic } from '@/components/ui/Interactive';
+import { Words } from '@/components/ui/Display';
+import { Wave } from '@/components/ui/Wave';
+import { Image } from '@/components/ui/Media';
 import { ArrowRightIcon, ArrowUpRightIcon } from '@/components/ui/Icons';
-import type { SiteStats } from '@/types/api';
-
-/* --- Background --------------------------------------------------------- */
-
-const TRACES = [
-  { d: 'M0 120 H180 L240 180 H420 L470 130 H640', delay: 0 },
-  { d: 'M0 300 H120 L180 240 H360 L410 290 H560 L600 250 H800', delay: 1.4 },
-  { d: 'M0 480 H220 L280 420 H480 L530 470 H720', delay: 2.8 },
-  { d: 'M140 0 V90 L200 150 V260', delay: 2.1 },
-  { d: 'M520 600 V500 L580 440 V330', delay: 0.7 },
-  { d: 'M800 390 H700 L650 340 H470', delay: 3.5 },
-];
-
-const NODES = [
-  { cx: 180, cy: 120, delay: 0 },
-  { cx: 420, cy: 180, delay: 0.5 },
-  { cx: 180, cy: 240, delay: 1.1 },
-  { cx: 560, cy: 290, delay: 1.7 },
-  { cx: 280, cy: 420, delay: 2.3 },
-  { cx: 530, cy: 470, delay: 2.9 },
-  { cx: 200, cy: 150, delay: 1.4 },
-  { cx: 650, cy: 340, delay: 3.4 },
-];
-
-/** Copper pads, as a part would be soldered to. */
-const PADS = [
-  { x: 236, y: 176, w: 9, h: 9 },
-  { x: 406, y: 286, w: 9, h: 9 },
-  { x: 276, y: 416, w: 9, h: 9 },
-  { x: 646, y: 336, w: 9, h: 9 },
-];
+import type { CSSProperties } from 'react';
+import type { SiteEvent } from '@/types/api';
 
 /**
- * Signal traces. Each path carries a dashed overlay whose offset animates,
- * which reads as a pulse travelling the wire, plus a node that pulses in
- * time at the junction.
+ * A tilted mono caption pinned to the hero photograph.
  *
- * `lit` draws the same geometry at full strength; the caller masks that copy
- * to the pointer, so one set of coordinates serves both states.
+ * The rotation is set twice - once as a `rotate` so it holds at rest, and
+ * once as a custom property the `drift` keyframes add to - because a
+ * keyframe that animated `transform` alone would reset the tilt to zero on
+ * its first frame.
  */
-function CircuitTraces({ lit = false }: { lit?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 800 600"
-      className="absolute inset-0 size-full"
-      preserveAspectRatio="xMidYMid slice"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <g
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth={lit ? 1.4 : 1}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        {TRACES.map((trace) => (
-          <g key={trace.d}>
-            {/* The static wire. */}
-            <path d={trace.d} opacity={lit ? 0.5 : 0.1} />
-            {/* The pulse: a short dash chased along the same path. */}
-            <path
-              d={trace.d}
-              strokeDasharray="36 284"
-              style={{
-                animation: `trace-flow 7s linear ${trace.delay}s infinite`,
-                opacity: lit ? 1 : 0.75,
-              }}
-            />
-          </g>
-        ))}
-      </g>
-
-      <g fill="var(--accent)">
-        {NODES.map((node) => (
-          <circle
-            key={`${node.cx}-${node.cy}`}
-            cx={node.cx}
-            cy={node.cy}
-            r="2"
-            style={{ animation: `node-pulse 3.4s ease-in-out ${node.delay}s infinite` }}
-          />
-        ))}
-      </g>
-
-      {/* Copper, for the one warm note on an otherwise cyan board. */}
-      <g fill="var(--pad)" opacity={lit ? 1 : 0.55}>
-        {PADS.map((pad) => (
-          <rect key={`${pad.x}-${pad.y}`} x={pad.x} y={pad.y} width={pad.w} height={pad.h} rx="2" />
-        ))}
-      </g>
-
-      {/* A part footprint, so the board reads as populated rather than bare. */}
-      <g
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth="1"
-        opacity={lit ? 0.55 : 0.16}
-        strokeLinejoin="round"
-      >
-        <rect x="330" y="224" width="68" height="44" rx="3" />
-        <path d="M330 236h-12M330 250h-12M398 236h12M398 250h12" />
-        <circle cx="340" cy="234" r="2" />
-      </g>
-    </svg>
-  );
-}
-
-function HeroBackdrop() {
-  // Three depths. The grid is nearly fixed, the traces drift, the glows move
-  // most - which is the order a real stack of layers would appear to move in.
-  const gridY = usePageParallax(30);
-  const traceY = usePageParallax(64);
-  const glowY = usePageParallax(110);
-
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <motion.div className="absolute inset-0" style={{ y: gridY }}>
-        <div className="grid-field absolute inset-0" />
-      </motion.div>
-
-      <motion.div className="absolute inset-0" style={{ y: traceY }}>
-        <CircuitTraces />
-        {/* The pointer's copy, masked to a circle around the cursor. */}
-        <div className="trace-reveal absolute inset-0">
-          <CircuitTraces lit />
-        </div>
-      </motion.div>
-
-      <motion.div className="absolute inset-0" style={{ y: glowY }}>
-        <div
-          className="glow -top-24 -left-20 size-[32rem] bg-[var(--glow-primary)]"
-          style={{ animation: 'drift 22s ease-in-out infinite' }}
-        />
-        <div
-          className="glow top-1/3 -right-24 size-[26rem] bg-[var(--glow-secondary)]"
-          style={{ animation: 'drift 28s ease-in-out -8s infinite' }}
-        />
-        <div
-          className="glow bottom-0 left-1/3 size-[22rem] bg-[var(--glow-signal)]"
-          style={{ animation: 'drift 34s ease-in-out -14s infinite' }}
-        />
-      </motion.div>
-
-      {/* Fade into the next section so the hero does not end on a hard edge. */}
-      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[var(--surface-base)]" />
-    </div>
-  );
-}
-
-/**
- * The affordance that there is more below.
- *
- * Rendered only while the page is still at the top: once the visitor has
- * scrolled it has served its purpose, and unmounting it is what stops the
- * loop rather than merely hiding it.
- */
-function ScrollCue() {
-  const scrolled = useScrolledPast(80);
-  if (scrolled) return null;
-
-  return (
-    <motion.div
-      className="absolute inset-x-0 bottom-6 hidden justify-center md:flex"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.5, delay: 1.2 }}
-      aria-hidden="true"
-    >
-      <span className="flex flex-col items-center gap-2 font-mono text-[0.625rem] tracking-[0.2em] text-faint uppercase">
-        Scroll
-        <span className="relative h-8 w-px overflow-hidden bg-[var(--border-default)]">
-          <span
-            className="absolute inset-x-0 top-0 h-3 bg-[var(--accent)]"
-            style={{ animation: 'scroll-hint 2.4s ease-in-out infinite' }}
-          />
-        </span>
-      </span>
-    </motion.div>
-  );
-}
-
-/* --- Stats -------------------------------------------------------------- */
-
-function StatTile({ value, label, suffix }: { value: number; label: string; suffix?: string }) {
-  const { ref, value: displayed } = useCountUp(value);
-
-  return (
-    <div ref={ref as React.Ref<HTMLDivElement>} className="group space-y-1">
-      <p className="font-display text-3xl font-bold text-strong tabular md:text-4xl">
-        {compactNumber(displayed)}
-        {suffix && <span className="text-accent">{suffix}</span>}
-      </p>
-      <p className="font-mono text-[0.625rem] tracking-[0.12em] text-muted uppercase">{label}</p>
-    </div>
-  );
-}
-
-function HeroStats({ stats }: { stats: SiteStats }) {
-  const tiles = [
-    { value: stats.members, label: 'Members', suffix: '' },
-    { value: stats.events, label: 'Events run', suffix: '+' },
-    { value: stats.collaborations, label: 'Partners', suffix: '' },
-    { value: stats.years_active, label: 'Years active', suffix: '' },
-  ];
-
-  return (
-    <dl className="grid grid-cols-2 gap-6 border-t border-[var(--border-subtle)] pt-7 sm:grid-cols-4">
-      {tiles.map((tile) => (
-        <div key={tile.label}>
-          <dt className="sr-only">{tile.label}</dt>
-          <dd>
-            <StatTile value={tile.value} label={tile.label} suffix={tile.suffix} />
-          </dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-/* --- Hero --------------------------------------------------------------- */
-
-/**
- * One word of the headline, lifted into place.
- *
- * `inline-block` is what makes the word transformable, and keeps it from
- * breaking apart across a line.
- */
-function AnimatedWord({
+function PhotoTag({
   children,
-  index,
-  reducedMotion,
+  className,
+  rotate,
+  delay,
+  tone = 'paper',
 }: {
   children: React.ReactNode;
-  index: number;
-  reducedMotion: boolean | null;
+  className?: string;
+  rotate: string;
+  delay?: string;
+  tone?: 'paper' | 'accent';
 }) {
   return (
-    <motion.span
-      className="inline-block"
-      initial={reducedMotion ? undefined : { opacity: 0, y: '0.4em', filter: 'blur(8px)' }}
-      animate={reducedMotion ? undefined : { opacity: 1, y: 0, filter: 'blur(0px)' }}
-      transition={{
-        default: { type: 'spring', visualDuration: 0.7, bounce: 0.1, delay: 0.12 + index * 0.055 },
-        opacity: { duration: 0.5, delay: 0.12 + index * 0.055 },
-        filter: { duration: 0.6, delay: 0.12 + index * 0.055 },
-      }}
+    <span
+      className={[
+        'mono animate-drift absolute px-3 py-2',
+        tone === 'paper'
+          ? 'border border-line bg-paper text-ink shadow-[2px_2px_0_0_var(--text-primary)]'
+          : 'bg-signal-fill text-on-accent',
+        className,
+      ].join(' ')}
+      style={{ '--r': rotate, rotate, animationDelay: delay } as CSSProperties}
     >
       {children}
-    </motion.span>
+    </span>
   );
 }
 
-export function Hero({ stats }: { stats: SiteStats | null }) {
+/**
+ * A container-relative font size that makes the headline's longest line fill
+ * the shell.
+ *
+ * The headline is authored in site settings, so its length is not knowable
+ * here: "Build. Publish. Ship." and "Technology for humanity, built by
+ * students." want very different sizes, and a single hard-coded one either
+ * leaves the short headline looking timid or pushes the long one off the
+ * side of the screen.
+ *
+ * Archivo at 125% width and weight 900 averages a little over 0.6em per
+ * uppercase glyph, so a line of N characters needs roughly 100/(N × 0.62)
+ * container-width units to span the container. The result is clamped by the
+ * caller, so neither a one-word headline nor a pathological one escapes.
+ */
+function headlineSizeFor(heading: string): number {
+  const longestLine = heading
+    .replace(/\*/g, '')
+    .split('\n')
+    .reduce((longest, line) => Math.max(longest, line.trim().length), 0);
+
+  if (longestLine === 0) return 11;
+  return Math.min(16, 100 / (longestLine * 0.62));
+}
+
+export function Hero({ featured }: { featured?: SiteEvent | null }) {
   const { text, link } = useSiteSettings();
   const reducedMotion = useReducedMotion();
   const joinUrl = link('join_url');
 
-  // The pointer position, published as custom properties for the mask that
-  // lights the traces underneath it.
-  const { ref: spotlightRef, onPointerMove } = useSpotlight<HTMLElement>();
-  // The hero's content gives way as the page scrolls past it, so the board
-  // is what is left behind rather than text sliding under the header.
-  const { opacity } = useScrollAway();
-
-  const heading = text('hero_heading', 'Technology for humanity, built by students.');
+  const heading = text('hero_heading', 'Technology for\n*humanity*,\nbuilt by students.');
   const subheading = text(
     'hero_subheading',
     "The IEEE student branch at IIIT Delhi, where the institute's biggest technical events are imagined, engineered and run.",
   );
-  const eyebrow = text('hero_eyebrow', 'In affiliation with IEEE, WIE and Computer Society');
+  const eyebrow = text('hero_eyebrow', 'IEEE Student Branch · IIIT Delhi');
+  // Both optional: shown only once the branch has something true to put
+  // there, rather than carrying a plausible-looking default.
+  const meta = text('hero_meta', '');
+  const status = text('hero_status', '');
 
-  // The heading animates in a word at a time. Splitting on whitespace keeps
-  // words whole, so the line never breaks mid-word while animating.
-  const words = heading.split(' ');
-  // Where the gradient starts. Painting it once across the trailing words
-  // keeps it a single continuous sweep.
-  const accentFrom = Math.max(0, words.length - 2);
+  const headlineSize = headlineSizeFor(heading);
 
   return (
-    <section
-      ref={spotlightRef}
-      onPointerMove={onPointerMove}
-      className="trace-lit relative flex min-h-[88svh] items-center overflow-hidden pt-[var(--header-height)]"
-    >
-      <HeroBackdrop />
-
-      <motion.div className="shell relative py-16 md:py-24" style={{ opacity }}>
-        <div className="max-w-4xl">
-          <motion.p
-            className="eyebrow"
-            initial={reducedMotion ? undefined : { opacity: 0, y: 12 }}
-            animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          >
-            {eyebrow}
-          </motion.p>
-
-          <h1 className="fluid-display mt-6 font-bold">
-            {words.slice(0, accentFrom).map((word, index) => (
-              <Fragment key={`lead-${index}`}>
-                <AnimatedWord index={index} reducedMotion={reducedMotion}>
-                  {word}
-                </AnimatedWord>{' '}
-              </Fragment>
-            ))}
-            {/* One gradient box spanning the trailing words, so the sweep runs
-                across the phrase instead of restarting at every space. */}
-            <span className="text-gradient">
-              {words.slice(accentFrom).map((word, index, accentWords) => (
-                <Fragment key={`accent-${index}`}>
-                  <AnimatedWord index={accentFrom + index} reducedMotion={reducedMotion}>
-                    {word}
-                  </AnimatedWord>
-                  {index < accentWords.length - 1 ? ' ' : null}
-                </Fragment>
-              ))}
+    <section id="top" className="grid-paper grain relative bg-paper pt-[var(--header-height)]">
+      <div className="shell relative z-10">
+        {/* Status line. Ruled above and below, like a masthead's dateline. */}
+        <div
+          className="mono load-in flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-y border-line py-3"
+          style={{ '--load-d': '100ms' } as CSSProperties}
+        >
+          <span>{eyebrow}</span>
+          {meta && <span className="hidden text-muted sm:inline">{meta}</span>}
+          {status && (
+            <span className="flex items-center gap-2">
+              <span aria-hidden="true" className="size-2 animate-blink bg-signal" />
+              {status}
             </span>
+          )}
+        </div>
+
+        {/* The headline, sized against its own container rather than the
+            viewport, so it fills the shell at every width - and sized from
+            its own longest line, so it fills it without overflowing however
+            long the branch's headline is. */}
+        <div className="relative mt-6 [container-type:inline-size] sm:mt-8">
+          {/* The trace sits behind the type. It is the ground the headline
+              is printed on, not something laid over it. */}
+          <Wave kind="sine" drive="scroll" className="z-0" />
+
+          <h1
+            className="relative z-10 leading-[0.86] tracking-[-0.045em]"
+            style={{ fontSize: `clamp(2.25rem, ${headlineSize}cqw, 11rem)` }}
+          >
+            <Words onLoad delay={200} step={110} accent="noise-text" text={heading} />
           </h1>
+        </div>
 
-          <motion.p
-            className="mt-7 max-w-2xl text-lg text-muted md:text-xl"
-            initial={reducedMotion ? undefined : { opacity: 0, y: 14 }}
-            animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.6,
-              delay: 0.1 + words.length * 0.045,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-          >
-            {subheading}
-          </motion.p>
+        <div className="mt-10 grid gap-10 pb-16 sm:mt-12 lg:grid-cols-12 lg:gap-8 lg:pb-28">
+          <div className="flex flex-col gap-8 lg:col-span-5">
+            <div className="load-in space-y-7" style={{ '--load-d': '900ms' } as CSSProperties}>
+              <p className="max-w-[46ch] text-[1.125rem] leading-[1.65] text-secondary sm:text-[1.1875rem]">
+                {subheading}
+              </p>
 
-          <motion.div
-            className="mt-9 flex flex-wrap items-center gap-3"
-            initial={reducedMotion ? undefined : { opacity: 0, y: 14 }}
-            animate={reducedMotion ? undefined : { opacity: 1, y: 0 }}
-            transition={{
-              duration: 0.6,
-              delay: 0.18 + words.length * 0.045,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-          >
-            {joinUrl && (
-              <Magnetic>
-                <a
-                  href={joinUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary btn-lg"
-                >
-                  Join the branch
-                  <ArrowUpRightIcon className="size-4" />
-                </a>
-              </Magnetic>
-            )}
-            <Link to="/events" className="btn btn-secondary btn-lg">
-              See what we run
-              <ArrowRightIcon className="size-4" />
-            </Link>
-          </motion.div>
+              <div className="flex flex-wrap gap-4">
+                {joinUrl && (
+                  <Magnetic>
+                    <a
+                      href={joinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-lg min-w-[160px]"
+                    >
+                      Join the branch
+                      <ArrowUpRightIcon className="size-4" />
+                    </a>
+                  </Magnetic>
+                )}
+                <Link to="/events" className="btn btn-secondary btn-lg">
+                  See what we run
+                  <ArrowRightIcon className="size-4" />
+                </Link>
+              </div>
+            </div>
+          </div>
 
-          {stats && (
+          {/* The photograph. Uses whichever event the branch has featured,
+              so the hero changes with the season rather than being a fixed
+              asset someone has to remember to replace. */}
+          {featured?.poster && (
             <motion.div
-              className="mt-14"
+              className="relative lg:col-span-7"
               initial={reducedMotion ? undefined : { opacity: 0 }}
               animate={reducedMotion ? undefined : { opacity: 1 }}
-              transition={{ duration: 0.7, delay: 0.3 + words.length * 0.045 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <HeroStats stats={stats} />
+              <figure
+                className="ink-photo-wrap clip-open aspect-[4/3] overflow-hidden sm:aspect-[16/9]"
+                style={{ '--load-d': '500ms' } as CSSProperties}
+              >
+                <Image
+                  src={featured.poster}
+                  alt={featured.title}
+                  className="ink-photo size-full object-cover"
+                  loading="eager"
+                />
+              </figure>
+
+              <PhotoTag rotate="-2deg" className="bottom-5 left-4 sm:left-6">
+                {featured.title}
+              </PhotoTag>
+
+              {featured.location && (
+                <PhotoTag
+                  rotate="1.5deg"
+                  delay="-5s"
+                  tone="accent"
+                  className="top-5 right-5 hidden sm:block"
+                >
+                  {featured.location}
+                </PhotoTag>
+              )}
             </motion.div>
           )}
         </div>
-      </motion.div>
-
-      <ScrollCue />
+      </div>
     </section>
   );
 }

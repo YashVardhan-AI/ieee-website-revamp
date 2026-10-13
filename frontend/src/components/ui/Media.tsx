@@ -15,6 +15,12 @@ interface ImageProps {
   src: string | null | undefined;
   alt: string;
   className?: string;
+  /**
+   * Classes for the `<img>` itself rather than its wrapper. This is how the
+   * ink treatment is applied: `.ink-photo` has to sit on the element whose
+   * `filter` is being animated, not on the box around it.
+   */
+  imageClassName?: string;
   /** Tailwind aspect-ratio class, e.g. `aspect-16/10`. */
   aspect?: string;
   /** `eager` for above-the-fold images only. */
@@ -28,6 +34,7 @@ export function Image({
   src,
   alt,
   className,
+  imageClassName,
   aspect,
   loading = 'lazy',
   fallback,
@@ -82,6 +89,7 @@ export function Image({
           'size-full transition-opacity duration-500',
           objectFit === 'cover' ? 'object-cover' : 'object-contain',
           loaded ? 'opacity-100' : 'opacity-0',
+          imageClassName,
         )}
       />
     </div>
@@ -143,6 +151,12 @@ export function Avatar({ src, name, className, size = 'size-10' }: AvatarProps) 
  * Photos come from several years of the previous site at inconsistent crops,
  * so a fixed aspect ratio with a top-weighted crop keeps faces in frame and
  * the grid even.
+ *
+ * Treated as printed ink - desaturated at rest, returning to full colour when
+ * the containing card is hovered. That is what lets a grid of thirty
+ * portraits taken on thirty different cameras read as one set. Unlike the
+ * editorial photos on the landing page, portraits skip the accent tint: on a
+ * face it reads as a colour cast rather than as ink.
  */
 export function Portrait({
   src,
@@ -176,7 +190,7 @@ export function Portrait({
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
           className={cx(
-            'size-full object-cover object-top transition-[opacity,transform] duration-500 ease-[var(--ease-out-expo)] group-hover:scale-[1.04]',
+            'ink-photo size-full object-cover object-top group-hover:scale-[1.04]',
             loaded ? 'opacity-100' : 'opacity-0',
           )}
         />

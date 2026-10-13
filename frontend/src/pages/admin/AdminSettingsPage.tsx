@@ -37,8 +37,23 @@ const GROUPS: Array<{ title: string; description: string; fields: FieldSpec[] }>
       { key: 'site_name', label: 'Site name' },
       { key: 'site_tagline', label: 'Tagline' },
       { key: 'hero_eyebrow', label: 'Hero eyebrow', hint: 'The small line above the headline.' },
-      { key: 'hero_heading', label: 'Hero headline', type: 'textarea' },
+      {
+        key: 'hero_heading',
+        label: 'Hero headline',
+        type: 'textarea',
+        hint: 'A new line breaks the headline. Wrap a word in *asterisks* for the halftone treatment.',
+      },
       { key: 'hero_subheading', label: 'Hero subheading', type: 'textarea' },
+      {
+        key: 'hero_meta',
+        label: 'Hero dateline',
+        hint: 'Shown in the middle of the status line, e.g. a location. Hidden when empty.',
+      },
+      {
+        key: 'hero_status',
+        label: 'Hero status',
+        hint: 'Shown with a blinking marker, e.g. "Induction open". Hidden when empty.',
+      },
     ],
   },
   {
@@ -59,12 +74,44 @@ const GROUPS: Array<{ title: string; description: string; fields: FieldSpec[] }>
     description: 'The join call to action.',
     fields: [
       { key: 'join_url', label: 'Application form URL', type: 'url' },
-      { key: 'join_heading', label: 'Join heading' },
+      {
+        key: 'join_heading',
+        label: 'Join heading',
+        type: 'textarea',
+        hint: 'A new line breaks the headline. Wrap a word in *asterisks* to accent it.',
+      },
+      { key: 'join_body', label: 'Join intro', type: 'textarea' },
       {
         key: 'join_perks',
         label: 'Membership perks',
         type: 'longtext',
-        hint: 'One perk per line.',
+        hint: 'One perk per line, as "Short title | the sentence under it". The title alone also works.',
+      },
+    ],
+  },
+  {
+    title: 'Testimonials',
+    description:
+      'Quotes from members, shown one at a time on the landing page. The section is hidden entirely while this is empty.',
+    fields: [
+      {
+        key: 'testimonials',
+        label: 'Member quotes',
+        type: 'longtext',
+        hint: 'One per line, as "The quote | Name | Role". Lines missing a name or role are skipped.',
+      },
+    ],
+  },
+  {
+    title: 'FAQ',
+    description:
+      'The questions the branch is actually asked. The section is hidden entirely while this is empty.',
+    fields: [
+      {
+        key: 'faqs',
+        label: 'Questions and answers',
+        type: 'longtext',
+        hint: 'One per line, as "The question? | the answer". Questions with no answer are skipped.',
       },
     ],
   },

@@ -1,11 +1,14 @@
 """`ieee-content` - the scriptable way to update the site.
 
     just content-import      load content/ into the database
-    just content-export      write the database back out to content/
+    just dbsync              write the database back out to content/
+    just dbsync members      ... or just one section of it
     just content-check       show what an import would change
     just content-validate    check the files without touching the database
 
-Run with --help for the full set of flags.
+Both directions take section names, so dashboard edits can be pulled back a
+piece at a time instead of rewriting the whole tree. Run with --help for the
+full set of flags and the list of sections.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from app.content.store import ContentError
-from app.content.sync import ContentSync, SyncReport
+from app.content.sync import SECTION_FILES, SECTION_ORDER, ContentSync, SyncReport
 from app.core.config import settings
 from app.db.session import SessionLocal
 
@@ -36,6 +39,7 @@ def _build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     importer = subparsers.add_parser("import", help="Load content/ into the database")
+    _add_sections_argument(importer, "load")
     importer.add_argument(
         "--dry-run",
         action="store_true",
@@ -50,9 +54,22 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
 
-    subparsers.add_parser("export", help="Write the database out to content/")
+    exporter = subparsers.add_parser("export", help="Write the database out to content/")
+    _add_sections_argument(exporter, "write")
+
     subparsers.add_parser("validate", help="Validate content/ without using the database")
     return parser
+
+
+def _add_sections_argument(parser: argparse.ArgumentParser, verb: str) -> None:
+    """The optional list of sections both directions accept."""
+    listing = ", ".join(f"{name} ({SECTION_FILES[name]})" for name in SECTION_ORDER)
+    parser.add_argument(
+        "sections",
+        nargs="*",
+        metavar="SECTION",
+        help=f"Sections to {verb}; all of them when none are given. One of: {listing}.",
+    )
 
 
 def _print_report(report: SyncReport, *, title: str) -> None:
@@ -94,15 +111,16 @@ def main(argv: list[str] | None = None) -> int:
     with SessionLocal() as db:
         sync = ContentSync(db, content_dir)
         try:
+            scope = " ".join(args.sections) if args.sections else "everything"
             if args.command == "import":
-                report = sync.import_all(prune=args.prune, dry_run=args.dry_run)
+                report = sync.import_sections(args.sections, prune=args.prune, dry_run=args.dry_run)
                 mode = "would change" if args.dry_run else "imported"
-                _print_report(report, title=f"content/ {mode}:")
+                _print_report(report, title=f"content/ {mode} ({scope}):")
                 if args.dry_run and report.total_changes == 0:
                     print("Database already matches content/.")
             else:
-                report = sync.export_all()
-                _print_report(report, title=f"exported database to {content_dir}:")
+                report = sync.export_sections(args.sections)
+                _print_report(report, title=f"wrote database to {content_dir} ({scope}):")
         except ContentError as exc:
             print(f"Content error:\n  {exc}", file=sys.stderr)
             return 1

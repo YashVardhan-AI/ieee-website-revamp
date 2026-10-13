@@ -115,8 +115,8 @@ between terms is content, not code.
 
 ## Updating content
 
-There are two ways to change what the site says, and they operate on the same
-data.
+There are two ways to change what the site says. They operate on the same
+data, and a third command moves work from one to the other.
 
 ### 1. The dashboard
 
@@ -145,7 +145,6 @@ Edit a file, then:
 just content-import     # load content/ into the database
 just content-check      # preview what an import would change
 just content-validate   # check the files without touching the database
-just content-export     # write the database back out to content/
 ```
 
 The database is what the site serves; `content/` is the version-controlled
@@ -160,8 +159,36 @@ uv --project backend run ieee-content import --prune
 Pruning also refuses to empty a table when the corresponding file is missing
 or empty, so a mistyped path cannot wipe the roster.
 
-Round-tripping works in both directions: edit in the dashboard, run
-`just content-export`, and review the diff like any other change.
+### 3. The dashboard, then `just dbsync`
+
+The two surfaces are not alternatives. Edit in the dashboard — which is far
+faster for reordering a roster or fixing a typo — and then pull the result
+back into `content/`, where it can be reviewed and committed like any other
+change:
+
+```bash
+just dbsync             # everything
+just dbsync members     # just the roster
+just dbsync blogs       # categories and every post
+just dbsync members alumni
+```
+
+Nothing leaves the database until you run it, so the dashboard is usable as
+a drafting tool: change things all afternoon, look at them on the site, and
+decide afterwards what becomes permanent.
+
+The sections are `settings`, `blogs`, `members`, `alumni`, `collaborations`,
+`events` and `ieee-day`; `team`, `posts`, `sponsors` and similar names work
+too. `just content-import` takes the same names, so one section can be pushed
+as well as pulled.
+
+Naming a section matters because a sync **regenerates whole files**. Pulling
+the roster back should not also reformat every blog post, and a one-file diff
+is one you will actually read. For the same reason, comments you add inside a
+generated file do not survive a sync — the header of each file says so.
+
+`just dbsync` prints which files changed, so a run that did nothing says so
+rather than leaving you to check.
 
 **Conventions worth knowing**
 
@@ -230,8 +257,8 @@ Round-tripping works in both directions: edit in the dashboard, run
 | `just db-migrate` | Apply pending migrations |
 | `just db-migration "message"` | Generate a migration from model changes |
 | `just db-reset` | Rebuild the database from scratch (destructive, prompts) |
-| `just content-import` | Load `content/` into the database |
-| `just content-export` | Write the database back out to `content/` |
+| `just content-import [section]` | Load `content/` into the database |
+| `just dbsync [section]` | Pull the database back into `content/` |
 | `just admin` | Create or update the administrator |
 | `just secret` | Print a fresh random signing key |
 | `just logs` | Tail container logs |
@@ -446,21 +473,48 @@ migrations so that staying compatible one version back is always possible.
 
 ## Design notes
 
-**Palette.** Built from IEEE's brand blue (`#00629B`) and then taken
-somewhere specific: a printed circuit board. Blue stays the brand and carries
-primary actions, but the colours doing the everyday work are the ones you
-find on a board — a teal-cyan "trace" for interaction and focus, copper for
-emphasis, solder green for status. An all-blue page has nowhere for the eye
-to land. The dark ground is FR-4 substrate rather than neutral black, which
-is what lets a cyan trace read as lit rather than merely coloured. Tokens
-live in `frontend/src/styles/theme.css`.
+**Palette.** IEEE's own and nothing else: brand blue (`#00629B`) carrying
+every accent, IEEE navy (`#002855`) as the dark ground, and otherwise paper
+and ink. There is no decorative third colour, because the work of
+distinguishing one band from the next is done by typography and texture
+instead — ultra-condensed display type, hard offset shadows, a print grain,
+halftone screens, and photography treated as printed ink that returns to
+colour under the pointer. Tokens live in `frontend/src/styles/theme.css`.
+
+Two layers of token, and the distinction matters. `--color-ieee-*` is the
+fixed brand scale. `--surface-*`, `--text-*` and `--accent*` are semantic
+roles that swap with the theme, and they are what components use. One value
+cannot serve two roles: a light-only design can call its near-black "ink" and
+use it for both body text and contrast bands, but the moment there is a dark
+theme those two uses move in opposite directions. The accent splits for the
+same reason — IEEE blue sets type perfectly well on white (6.6:1) and not at
+all on navy (2.2:1), so `--accent` (type on the page), `--accent-fill`
+(backgrounds, under white text) and `--accent-on-dark` (type on a navy or ink
+band) are three tokens rather than one. In dark mode the first brightens and
+the second deepens; a single token would fail one of them, and the arithmetic
+is in the stylesheet's comments.
+
+**Typography.** Archivo for display, Instrument Sans for text, DM Mono for
+labels, all self-hosted. Archivo is there for its width axis: `.cond` at 62%
+and `.wide` at 125% are the same font file, which is what gives both the
+ultra-condensed headline and the wide wordmark without a second family.
+Headings deliberately do not set a colour, so a heading inherits the band it
+sits in rather than painting itself the page's own ink on a navy ground.
 
 **Themes.** Light and dark both ship. The palette is defined on bare `:root`
 so a value always exists; dark redefines only what changes, under both a
 media query and a `data-theme` attribute, so the toggle wins in either
 direction and the system preference is the default.
 
-**Motion.** Two kinds, kept apart. *Entrances* (`components/ui/Reveal.tsx`)
+**Editorial sections.** The perks, testimonials and FAQ bands are site
+settings rather than database tables — a list that changes once a year does
+not need a migration and an admin screen. Each is parsed in
+`frontend/src/utils/settings.ts`, each hides its whole section when its
+setting is empty, and none of them ships placeholder copy. The hero and join
+headlines take two characters of markup: a newline breaks the line, and
+`*asterisks*` mark the accented word.
+
+**Motion.** Three kinds, kept apart. *Entrances* (`components/ui/Reveal.tsx`)
 fire once when an element is first seen — a spring-driven lift with a blur
 resolving alongside it, so a card reads as coming into focus rather than
 sliding into place — and use `whileInView` with `once`, so nothing replays on
@@ -480,16 +534,38 @@ every component checks the same preference before animating — the
 scroll-linked ones skip their measurement entirely rather than measuring and
 discarding the result.
 
+The third kind is the hero's oscilloscope (`components/ui/Wave.tsx`), the one
+canvas on the site. It draws a trace that is chaotic on the left and resolves
+into a clean waveform on the right, and it cleans up further as the hero
+scrolls past — noise in, signal out, which is the branch's own pitch drawn in
+one line. It measures its own host rather than being handed a progress value,
+so no parent re-renders sixty times a second to feed it; it is gated on an
+IntersectionObserver, so it stops entirely when scrolled out of view; it
+reads its stroke colour from a theme token and follows both the toggle and
+the system preference; and under reduced motion it draws exactly one static
+frame and never starts the loop.
+
 **Interaction.** Cards lean toward the pointer, the primary call to action
-leans back, the nav's marker travels between items instead of each item
-fading its own in, and a back-to-top control carries the page position as a
-ring. All of it is inert on touch, where there is no hover to answer and a
-transform under a finger only fights the scroll.
+leans back, a square pip marks the current page and previews on hover, and
+the header's bottom rule is scaled to reading progress. On the landing page
+the featured events stack as sticky cards so the one you are reading stays
+put while the next slides over it, the perks list lights only the row
+crossing the middle of the viewport, and the activity grid's icons draw
+themselves in on hover — triggered by CSS rather than React, so hovering
+costs no renders, and on `focus-within` too, so the keyboard sees what the
+pointer does. Accordions animate on `grid-template-rows: 0fr → 1fr`, so each
+panel sizes itself to its content and nothing is measured back out of the
+DOM. All pointer-led motion is inert on touch, where there is no hover to
+answer and a transform under a finger only fights the scroll.
 
 **Accessibility.** Semantic landmarks and one `h1` per page; every control
 labelled; visible focus rings everywhere; status conveyed by icon or word as
 well as colour; dialogs trap focus and restore it on close; the first tab
-stop is a skip link.
+stop is a skip link. Headlines that animate a word at a time render the plain
+string for screen readers and hide the split-up copy, so a heading is
+announced as a sentence rather than as a stream of words. Every text/background
+pair on the public site was measured against WCAG AA in both themes; the
+accent token split above is what that measurement forced.
 
 **Performance.** Routes are lazily loaded and the vendor bundle is split, so
 the landing page ships about 167 KB gzipped — React 68, Motion 45, the app
