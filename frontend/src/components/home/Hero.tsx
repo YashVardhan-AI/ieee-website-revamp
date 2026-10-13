@@ -183,12 +183,7 @@ export function Hero({ featured }: { featured?: SiteEvent | null }) {
             >
               <figure
                 className="ink-photo-wrap clip-open aspect-[4/3] overflow-hidden sm:aspect-[16/9]"
-                style={
-                  {
-                    '--load-d': '500ms',
-                    '--tint': 'var(--surface-brand)',
-                  } as CSSProperties
-                }
+                style={{ '--load-d': '500ms' } as CSSProperties}
               >
                 <Image
                   src={featured.poster}

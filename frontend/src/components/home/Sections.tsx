@@ -23,7 +23,6 @@ import { CollaborationMarquee } from '@/components/cards/CollaborationCard';
 import { ArrowRightIcon, ArrowUpRightIcon, PlusIcon } from '@/components/ui/Icons';
 import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
-import type { CSSProperties } from 'react';
 import type {
   Alumnus,
   BlogPostSummary,
@@ -140,25 +139,21 @@ export function StatsBand({ stats, alumni }: { stats: SiteStats; alumni: Alumnus
 const EVENT_TONES = [
   {
     card: 'bg-silk text-ink border border-line-strong',
-    tint: 'var(--surface-brand)',
     rule: 'border-line',
     number: 'text-ink/10',
   },
   {
     card: 'bg-signal-fill text-on-accent',
-    tint: 'var(--surface-contrast)',
     rule: 'border-on-accent/30',
     number: 'text-on-accent/20',
   },
   {
     card: 'bg-board text-on-contrast',
-    tint: 'var(--accent)',
     rule: 'border-on-contrast/25',
     number: 'text-on-contrast/15',
   },
   {
     card: 'bg-ink-surface text-on-contrast',
-    tint: 'var(--accent)',
     rule: 'border-on-contrast/25',
     number: 'text-on-contrast/15',
   },
@@ -252,10 +247,7 @@ export function FeaturedEvents({ events }: { events: SiteEvent[] }) {
                     </div>
 
                     {event.poster && (
-                      <div
-                        className="group ink-photo-wrap order-1 aspect-[16/10] overflow-hidden lg:order-2 lg:col-span-7 lg:aspect-auto"
-                        style={{ '--tint': tone.tint } as CSSProperties}
-                      >
+                      <div className="group ink-photo-wrap order-1 aspect-[16/10] overflow-hidden lg:order-2 lg:col-span-7 lg:aspect-auto">
                         <Image
                           src={event.poster}
                           alt={event.title}

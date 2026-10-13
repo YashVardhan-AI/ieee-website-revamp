@@ -46,18 +46,25 @@ const EMPTY_MEMBER: MemberDraft = {
 
 function MemberEditor({
   member,
+  defaultCategory,
   onClose,
   onSaved,
 }: {
   member: TeamMemberAdmin | null;
+  /** Which group a new member starts in, so adding from a group lands there. */
+  defaultCategory?: TeamCategory;
   onClose: () => void;
   onSaved: (message: string) => void;
 }) {
   const [values, setValues] = useState<MemberDraft>(EMPTY_MEMBER);
 
   useEffect(() => {
-    setValues(member ? { ...member } : EMPTY_MEMBER);
-  }, [member]);
+    setValues(
+      member
+        ? { ...member }
+        : { ...EMPTY_MEMBER, category: defaultCategory ?? EMPTY_MEMBER.category },
+    );
+  }, [member, defaultCategory]);
 
   const [save, { submitting, error, fieldErrors }] = useMutation(async (draft: MemberDraft) =>
     member ? adminApi.team.update(member.id, draft) : adminApi.team.create(draft),
@@ -503,7 +510,8 @@ function GraduateDialog({
 
 export default function AdminTeamPage() {
   const [editing, setEditing] = useState<TeamMemberAdmin | null>(null);
-  const [creating, setCreating] = useState(false);
+  /** The group an in-progress "add" belongs to, or null when not adding. */
+  const [creating, setCreating] = useState<TeamCategory | null>(null);
   const [deleting, setDeleting] = useState<TeamMemberAdmin | null>(null);
   const [graduating, setGraduating] = useState<TeamMemberAdmin | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -513,12 +521,19 @@ export default function AdminTeamPage() {
   const [remove, { submitting: removing }] = useMutation(adminApi.team.remove);
   const [reorder] = useMutation(adminApi.team.reorder);
 
+  /**
+   * Every published category, including the ones nobody is in yet.
+   *
+   * An empty group used to be dropped from the page, which left no way to
+   * put the first person into it - the executive committee at the start of a
+   * term, usually. Each group carries its own add button instead.
+   */
   const groups = useMemo(() => {
-    if (!data) return [];
+    if (!data || data.length === 0) return [];
     return TEAM_CATEGORY_ORDER.map((category) => ({
       category,
       members: data.filter((member) => member.category === category),
-    })).filter((group) => group.members.length > 0);
+    }));
   }, [data]);
 
   /**
@@ -570,7 +585,11 @@ export default function AdminTeamPage() {
         count={data?.length}
         description="The roster, grouped the way it is published. Use the arrows to change the order cards appear in, and the cap to move someone onto the alumni list."
         action={
-          <button type="button" className="btn btn-primary" onClick={() => setCreating(true)}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => setCreating(EMPTY_MEMBER.category)}
+          >
             <PlusIcon className="size-4" />
             Add member
           </button>
@@ -587,79 +606,103 @@ export default function AdminTeamPage() {
           icon={<UsersIcon className="size-5" />}
           title="No team members yet"
           description="Add them here, or list them in content/team.yaml and run just content-import."
+          action={
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => setCreating(EMPTY_MEMBER.category)}
+            >
+              <PlusIcon className="size-4" />
+              Add the first member
+            </button>
+          }
         />
       )}
 
       <div className="space-y-10">
         {groups.map((group) => (
           <section key={group.category} aria-labelledby={`group-${group.category}`}>
-            <div className="mb-3 flex flex-wrap items-baseline gap-3">
+            <div className="mb-3 flex flex-wrap items-center gap-3">
               <h2 id={`group-${group.category}`} className="font-semibold">
                 {TEAM_CATEGORY_LABELS[group.category]}
               </h2>
               <span className="chip tabular">{group.members.length}</span>
+              <button
+                type="button"
+                onClick={() => setCreating(group.category)}
+                className="ml-auto inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium text-muted transition-colors hover:bg-[var(--surface-sunken)] hover:text-accent"
+              >
+                <PlusIcon className="size-3.5" />
+                Add to {TEAM_CATEGORY_LABELS[group.category]}
+              </button>
             </div>
 
-            <ul className="card divide-y divide-[var(--border-subtle)] overflow-hidden">
-              {group.members.map((member, index) => (
-                <li
-                  key={member.id}
-                  className="flex items-center gap-3 p-3 transition-colors hover:bg-[var(--surface-sunken)]"
-                >
-                  <ReorderControls
-                    label={member.name}
-                    onUp={() => move(member, -1)}
-                    onDown={() => move(member, 1)}
-                    disabledUp={index === 0}
-                    disabledDown={index === group.members.length - 1}
-                  />
+            {group.members.length === 0 ? (
+              <p className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-default)] px-4 py-6 text-center text-sm text-muted">
+                Nobody is in this group yet.
+              </p>
+            ) : (
+              <ul className="card divide-y divide-[var(--border-subtle)] overflow-hidden">
+                {group.members.map((member, index) => (
+                  <li
+                    key={member.id}
+                    className="flex items-center gap-3 p-3 transition-colors hover:bg-[var(--surface-sunken)]"
+                  >
+                    <ReorderControls
+                      label={member.name}
+                      onUp={() => move(member, -1)}
+                      onDown={() => move(member, 1)}
+                      disabledUp={index === 0}
+                      disabledDown={index === group.members.length - 1}
+                    />
 
-                  <Avatar src={member.photo} name={member.name} size="size-10" />
+                    <Avatar src={member.photo} name={member.name} size="size-10" />
 
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-strong">
-                      {member.name}
-                      {!member.is_active && (
-                        <span className="ml-2 font-mono text-[0.625rem] text-faint uppercase">
-                          Inactive
-                        </span>
-                      )}
-                    </p>
-                    <p className="truncate text-xs text-muted">{member.position ?? '—'}</p>
-                  </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-strong">
+                        {member.name}
+                        {!member.is_active && (
+                          <span className="ml-2 font-mono text-[0.625rem] text-faint uppercase">
+                            Inactive
+                          </span>
+                        )}
+                      </p>
+                      <p className="truncate text-xs text-muted">{member.position ?? '—'}</p>
+                    </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setGraduating(member)}
-                      className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-accent"
-                      aria-label={`Move ${member.name} to alumni`}
-                      title="Move to alumni"
-                    >
-                      <GraduateIcon className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditing(member)}
-                      className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-accent"
-                      aria-label={`Edit ${member.name}`}
-                      title="Edit"
-                    >
-                      <EditIcon className="size-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDeleting(member)}
-                      className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--color-crimson-400)]"
-                      aria-label={`Remove ${member.name}`}
-                      title="Remove"
-                    >
-                      <TrashIcon className="size-4" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setGraduating(member)}
+                        className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-accent"
+                        aria-label={`Move ${member.name} to alumni`}
+                        title="Move to alumni"
+                      >
+                        <GraduateIcon className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditing(member)}
+                        className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-accent"
+                        aria-label={`Edit ${member.name}`}
+                        title="Edit"
+                      >
+                        <EditIcon className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeleting(member)}
+                        className="grid size-8 place-items-center rounded text-muted transition-colors hover:bg-[var(--surface-base)] hover:text-[var(--color-crimson-400)]"
+                        aria-label={`Remove ${member.name}`}
+                        title="Remove"
+                      >
+                        <TrashIcon className="size-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         ))}
       </div>
@@ -667,8 +710,9 @@ export default function AdminTeamPage() {
       {(creating || editing) && (
         <MemberEditor
           member={editing}
+          defaultCategory={creating ?? undefined}
           onClose={() => {
-            setCreating(false);
+            setCreating(null);
             setEditing(null);
           }}
           onSaved={(message) => {

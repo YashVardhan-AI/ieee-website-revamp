@@ -726,8 +726,8 @@
   animation: jitter 0.45s steps(1) infinite;
 }
 
-/* Photographs as printed ink: desaturated and tinted at rest, full colour
-   on hover. Keeps a wall of photos from fighting the type for attention. */
+/* Photographs as printed ink: desaturated at rest, full colour on hover.
+   Keeps a wall of photos from fighting the type for attention. */
 /* This rule is deliberately outside `@layer`, which puts it above every
    Tailwind utility - so the `transition` here wins over any `transition-*`
    class on the same element. That means opacity has to be listed too, or the
@@ -743,24 +743,7 @@
 
 .ink-photo-wrap {
   position: relative;
-  background: var(--surface-brand);
-  isolation: isolate;
-}
-
-.ink-photo-wrap::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--tint, var(--accent));
-  mix-blend-mode: overlay;
-  opacity: 0.45;
-  transition: opacity 0.8s ease;
-  pointer-events: none;
-}
-
-.ink-photo-wrap:hover::after,
-.group:hover .ink-photo-wrap::after {
-  opacity: 0;
+  background: var(--surface-sunken);
 }
 
 .ink-photo-wrap:hover .ink-photo,
