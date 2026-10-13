@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.api.v1.admin._crud import (
     apply_order,
@@ -12,17 +12,22 @@ from app.api.v1.admin._crud import (
     payload_to_columns,
 )
 from app.core.deps import CurrentAdmin, DbSession
+from app.core.errors import ConflictError
 from app.models.content import Alumnus, TeamCategory, TeamMember
 from app.schemas.common import Message
 from app.schemas.content import (
     AlumnusAdmin,
     AlumnusCreate,
     AlumnusUpdate,
+    GraduationResult,
     ReorderRequest,
     TeamMemberAdmin,
     TeamMemberCreate,
+    TeamMemberGraduate,
     TeamMemberUpdate,
 )
+from app.services.people import graduation_year_from_term
+from app.services.text import slugify
 
 team_router = APIRouter(prefix="/team", tags=["admin:team"])
 alumni_router = APIRouter(prefix="/alumni", tags=["admin:alumni"])
@@ -90,6 +95,81 @@ def update_member(
     db.commit()
     db.refresh(member)
     return TeamMemberAdmin.model_validate(member, from_attributes=True)
+
+
+@team_router.post(
+    "/{member_id}/graduate", response_model=GraduationResult, status_code=status.HTTP_201_CREATED
+)
+def graduate_member(
+    member_id: int, payload: TeamMemberGraduate, admin: CurrentAdmin, db: DbSession
+) -> GraduationResult:
+    """Move a member from the roster to the alumni list.
+
+    The two tables hold different things about the same person, so this is a
+    copy rather than a move: what the alumni page publishes is taken from the
+    member's record, and what only the roster knows is left behind.
+
+    The member keeps their slug, which gives the same person one identity
+    across both lists and makes graduating them twice a clear conflict rather
+    than a second, near-identical row.
+    """
+    del admin
+    member = get_or_404(db, TeamMember, member_id, "Team member")
+    sent = payload.model_dump(exclude_unset=True)
+
+    def chosen(field: str, derived: str | int | None) -> str | int | None:
+        """What the admin typed, or what the member's record implies."""
+        return sent.get(field, derived)
+
+    slug = slugify(payload.slug or member.slug, max_length=160)
+    if not slug:
+        raise ConflictError("That slug contains no usable characters.")
+    if db.scalar(select(Alumnus.id).where(Alumnus.slug == slug)) is not None:
+        raise ConflictError(
+            f"An alumnus already uses the slug '{slug}'. If this is the same person they "
+            "have been graduated already; if not, give them a different slug."
+        )
+
+    last_order = db.scalar(select(func.max(Alumnus.sort_order)))
+    alumnus = Alumnus(
+        slug=slug,
+        name=member.name,
+        photo=member.photo,
+        graduation_year=chosen("graduation_year", graduation_year_from_term(member.term)),
+        degree=chosen("degree", None),
+        branch=chosen("branch", member.department),
+        current_role=chosen("current_role", None),
+        current_organization=chosen("current_organization", None),
+        # What they did in the branch is what the alumni page shows about
+        # their time here, so the roster position becomes the IEEE position.
+        ieee_position=chosen("ieee_position", member.position),
+        linkedin_url=member.linkedin_url,
+        github_url=member.github_url,
+        website_url=member.website_url,
+        is_featured=payload.is_featured,
+        # Newly graduated alumni go to the end rather than the top, so an
+        # existing arrangement is not disturbed by someone leaving.
+        sort_order=(last_order or 0) + 1,
+    )
+    db.add(alumnus)
+
+    name = member.name
+    if payload.remove_from_team:
+        db.delete(member)
+        detail = f"{name} moved to alumni and removed from the roster."
+    else:
+        # Deactivating rather than deleting: they come off the public team
+        # page, but the record of who held the post that term survives.
+        member.is_active = False
+        detail = f"{name} moved to alumni and hidden from the team page."
+
+    db.commit()
+    db.refresh(alumnus)
+    return GraduationResult(
+        alumnus=AlumnusAdmin.model_validate(alumnus, from_attributes=True),
+        team_member_removed=payload.remove_from_team,
+        detail=detail,
+    )
 
 
 @team_router.post("/reorder", response_model=Message)

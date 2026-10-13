@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -64,9 +65,11 @@ def make_member(
     category: TeamCategory = TeamCategory.CORE,
     position: str = "Chairperson",
     active: bool = True,
+    **fields: Any,
 ) -> TeamMember:
+    """A roster entry. `fields` sets any remaining column, e.g. `term=`."""
     member = TeamMember(
-        slug=slug, name=name, category=category, position=position, is_active=active
+        slug=slug, name=name, category=category, position=position, is_active=active, **fields
     )
     db.add(member)
     db.commit()

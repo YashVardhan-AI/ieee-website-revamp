@@ -1,4 +1,4 @@
-"""Slugs, Markdown sanitising and upload validation."""
+"""Slugs, Markdown sanitising, upload validation and roster terms."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import pytest
 from PIL import Image
 
 from app.core.errors import ValidationError
+from app.services.people import graduation_year_from_term
 from app.services.text import (
     build_excerpt,
     plain_text,
@@ -286,3 +287,35 @@ def test_delete_removes_a_stored_image():
 )
 def test_delete_refuses_anything_outside_the_upload_directory(url):
     assert delete_image(url) is False
+
+
+# ---------------------------------------------------------------------------
+# Roster terms
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("term", "expected"),
+    [
+        # A session is named by the years it spans; the one it ends in is the
+        # year that belongs on an alumni card.
+        ("2025-26", 2026),
+        ("2024-2025", 2025),
+        ("2025 - 26", 2026),
+        ("2025 \u2013 26", 2026),
+        ("2025/26", 2026),
+        # A single year is already the end of its own session.
+        ("2025", 2025),
+        ("Term 2026", 2026),
+        # The abbreviated end year borrows the next century when it has to.
+        ("1999-00", 2000),
+    ],
+)
+def test_a_roster_term_gives_the_year_the_session_ends(term, expected):
+    assert graduation_year_from_term(term) == expected
+
+
+@pytest.mark.parametrize("term", [None, "", "   ", "spring", "n/a", "3000-01", "1800"])
+def test_an_unreadable_term_gives_no_year(term):
+    # An empty field the branch can fill in beats a year we made up.
+    assert graduation_year_from_term(term) is None

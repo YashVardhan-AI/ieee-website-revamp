@@ -178,6 +178,13 @@ export const BookIcon = (props: IconProps) => (
   </Svg>
 );
 
+export const GraduateIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M12 4 2 9l10 5 10-5-10-5Z" />
+    <path d="M6 11.5V17c0 1.1 2.7 2.5 6 2.5s6-1.4 6-2.5v-5.5" />
+  </Svg>
+);
+
 export const BriefcaseIcon = (props: IconProps) => (
   <Svg {...props}>
     <rect x="3" y="7" width="18" height="13" rx="2" />

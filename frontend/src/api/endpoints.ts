@@ -20,6 +20,8 @@ import type {
   CollaborationAdmin,
   ContactSubmissionAdmin,
   ContactSubmissionWrite,
+  GraduationRequest,
+  GraduationResult,
   IeeeDayEdition,
   LandingPage,
   Message,
@@ -164,6 +166,9 @@ export const adminApi = {
     remove: (id: number) => adminRequest<Message>(`/team/${id}`, { method: 'DELETE' }),
     reorder: (ids: number[]) =>
       adminRequest<Message>('/team/reorder', { method: 'POST', body: { ids } }),
+    /** Move a member onto the alumni list. Omitted fields are derived. */
+    graduate: (id: number, payload: GraduationRequest) =>
+      adminRequest<GraduationResult>(`/team/${id}/graduate`, { method: 'POST', body: payload }),
   },
 
   alumni: {

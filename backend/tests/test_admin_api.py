@@ -42,6 +42,7 @@ def test_unauthenticated_users_cannot_read_admin_endpoints(client, endpoint):
     [
         ("post", "/api/v1/admin/blogs"),
         ("post", "/api/v1/admin/team"),
+        ("post", "/api/v1/admin/team/1/graduate"),
         ("post", "/api/v1/admin/alumni"),
         ("post", "/api/v1/admin/collaborations"),
         ("post", "/api/v1/admin/events"),
@@ -299,6 +300,128 @@ def test_admin_can_remove_a_team_member(client, auth_headers, db: Session):
 
     assert response.status_code == 200
     assert client.get("/api/v1/team").json() == []
+
+
+def test_graduating_a_member_copies_them_onto_the_alumni_list(client, auth_headers, db: Session):
+    member = make_member(
+        db,
+        slug="outgoing-chair",
+        name="Outgoing Chair",
+        position="Chairperson",
+        department="CSE",
+        term="2025-26",
+        photo="/uploads/chair.webp",
+        linkedin_url="https://linkedin.com/in/outgoing",
+    )
+
+    response = client.post(
+        f"/api/v1/admin/team/{member.id}/graduate", headers=auth_headers, json={}
+    )
+
+    assert response.status_code == 201
+    alumnus = response.json()["alumnus"]
+    assert alumnus["name"] == "Outgoing Chair"
+    assert alumnus["slug"] == "outgoing-chair"
+    assert alumnus["photo"] == "/uploads/chair.webp"
+    assert alumnus["linkedin_url"] == "https://linkedin.com/in/outgoing"
+    # What they did in the branch, and what they studied, carry across.
+    assert alumnus["ieee_position"] == "Chairperson"
+    assert alumnus["branch"] == "CSE"
+    # The 2025-26 session ends in 2026.
+    assert alumnus["graduation_year"] == 2026
+    assert [a["slug"] for a in client.get("/api/v1/alumni").json()] == ["outgoing-chair"]
+
+
+def test_graduating_a_member_hides_them_from_the_team_page(client, auth_headers, db: Session):
+    member = make_member(db, slug="stepping-down")
+
+    response = client.post(
+        f"/api/v1/admin/team/{member.id}/graduate", headers=auth_headers, json={}
+    )
+
+    assert response.status_code == 201
+    assert response.json()["team_member_removed"] is False
+    # Off the public roster, but the record of the term they served survives.
+    assert client.get("/api/v1/team").json() == []
+    roster = client.get("/api/v1/admin/team", headers=auth_headers).json()
+    assert [m["slug"] for m in roster] == ["stepping-down"]
+    assert roster[0]["is_active"] is False
+
+
+def test_graduating_can_remove_the_roster_entry_outright(client, auth_headers, db: Session):
+    member = make_member(db, slug="leaving-entirely")
+
+    response = client.post(
+        f"/api/v1/admin/team/{member.id}/graduate",
+        headers=auth_headers,
+        json={"remove_from_team": True},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["team_member_removed"] is True
+    assert client.get("/api/v1/admin/team", headers=auth_headers).json() == []
+    assert len(client.get("/api/v1/alumni").json()) == 1
+
+
+def test_graduating_prefers_what_the_admin_typed_over_what_it_would_derive(
+    client, auth_headers, db: Session
+):
+    member = make_member(db, slug="with-overrides", position="Treasurer", term="2025-26")
+
+    response = client.post(
+        f"/api/v1/admin/team/{member.id}/graduate",
+        headers=auth_headers,
+        json={
+            "graduation_year": 2024,
+            "ieee_position": "Treasurer, then Vice Chair",
+            "degree": "B.Tech.",
+            "current_role": "Analyst",
+            "current_organization": "Globex",
+            "is_featured": True,
+        },
+    )
+
+    assert response.status_code == 201
+    alumnus = response.json()["alumnus"]
+    assert alumnus["graduation_year"] == 2024
+    assert alumnus["ieee_position"] == "Treasurer, then Vice Chair"
+    assert alumnus["degree"] == "B.Tech."
+    assert alumnus["current_organization"] == "Globex"
+    assert alumnus["is_featured"] is True
+
+
+def test_graduating_the_same_member_twice_is_refused(client, auth_headers, db: Session):
+    member = make_member(db, slug="already-gone")
+    first = client.post(f"/api/v1/admin/team/{member.id}/graduate", headers=auth_headers, json={})
+    assert first.status_code == 201
+
+    second = client.post(f"/api/v1/admin/team/{member.id}/graduate", headers=auth_headers, json={})
+
+    # A second row for the same person is worse than an error the admin can
+    # read, so the slug clash is reported rather than worked around.
+    assert second.status_code == 409
+    assert "already" in second.json()["detail"].lower()
+    assert len(client.get("/api/v1/alumni").json()) == 1
+
+
+def test_graduating_an_unknown_member_is_a_404(client, auth_headers):
+    response = client.post("/api/v1/admin/team/99999/graduate", headers=auth_headers, json={})
+
+    assert response.status_code == 404
+
+
+def test_graduating_a_member_without_a_term_leaves_the_year_empty(
+    client, auth_headers, db: Session
+):
+    member = make_member(db, slug="no-term", term=None)
+
+    response = client.post(
+        f"/api/v1/admin/team/{member.id}/graduate", headers=auth_headers, json={}
+    )
+
+    # Better an empty field the branch can fill in than a year we invented.
+    assert response.status_code == 201
+    assert response.json()["alumnus"]["graduation_year"] is None
 
 
 def test_admin_can_update_alumni_information(client, auth_headers, db: Session):

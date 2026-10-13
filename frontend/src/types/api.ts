@@ -134,6 +134,26 @@ export interface AlumnusAdmin extends Alumnus {
   id: number;
 }
 
+/** What the admin may set when moving a member onto the alumni list. */
+export interface GraduationRequest {
+  graduation_year?: number | null;
+  degree?: string | null;
+  branch?: string | null;
+  current_role?: string | null;
+  current_organization?: string | null;
+  ieee_position?: string | null;
+  slug?: string | null;
+  is_featured?: boolean;
+  /** Delete the roster entry instead of deactivating it. */
+  remove_from_team?: boolean;
+}
+
+export interface GraduationResult {
+  alumnus: AlumnusAdmin;
+  team_member_removed: boolean;
+  detail: string;
+}
+
 /* --- Showcase ----------------------------------------------------------- */
 
 export interface Collaboration {
