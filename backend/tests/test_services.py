@@ -229,6 +229,35 @@ def test_a_valid_png_is_stored():
     assert (stored.width, stored.height) == (64, 64)
 
 
+def _photo_with_exif(orientation: int = 1) -> bytes:
+    image = Image.new("RGB", (40, 20), (200, 30, 30))
+    exif = Image.Exif()
+    exif[0x0110] = "Secret Phone Model"  # Model
+    exif[0x0112] = orientation  # Orientation
+    buffer = io.BytesIO()
+    image.save(buffer, "JPEG", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+def test_exif_metadata_is_not_stored():
+    stored = save_image(content=_photo_with_exif(), content_type="image/jpeg", filename="p.jpg")
+
+    with Image.open(stored.path) as image:
+        assert not image.getexif()
+    assert b"Secret Phone Model" not in stored.path.read_bytes()
+
+
+def test_a_rotated_photo_is_stored_upright():
+    # Orientation 6 means "rotate 90 degrees clockwise to display".
+    stored = save_image(
+        content=_photo_with_exif(orientation=6), content_type="image/jpeg", filename="p.jpg"
+    )
+
+    assert (stored.width, stored.height) == (20, 40)
+    with Image.open(stored.path) as image:
+        assert image.size == (20, 40)
+
+
 def test_the_stored_name_does_not_come_from_the_client():
     stored = save_image(
         content=_png_bytes(), content_type="image/png", filename="../../etc/passwd.png"
