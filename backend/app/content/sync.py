@@ -57,7 +57,7 @@ from app.models.content import (
     SiteSetting,
     TeamMember,
 )
-from app.services.text import build_excerpt, reading_minutes, slugify
+from app.services.text import reading_minutes, slugify
 
 
 @dataclass
@@ -354,7 +354,10 @@ class ContentSync:
             values = {
                 "title": item.title,
                 "body": body,
-                "excerpt": item.excerpt or build_excerpt(body),
+                # Only an authored excerpt is stored; a derived one is worked
+                # out when the post is read, so it never goes stale and never
+                # gets written back into the file on export.
+                "excerpt": item.excerpt,
                 "cover_image": item.cover_image,
                 "cover_image_alt": item.cover_image_alt,
                 "author_name": item.author,
@@ -720,7 +723,9 @@ class ContentSync:
                     "author_subtitle": post.author_subtitle,
                     "author_image": post.author_image,
                     "category": post.category.slug if post.category else None,
-                    "tags": [tag.name for tag in post.tags],
+                    # Tags are an unordered set in the database, so they are
+                    # written sorted to keep repeated exports byte-identical.
+                    "tags": sorted(tag.name for tag in post.tags),
                     "date": post.published_at,
                     "excerpt": post.excerpt,
                     "cover_image": post.cover_image,

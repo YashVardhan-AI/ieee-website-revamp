@@ -1,13 +1,13 @@
 ---
-title: "From Apollo to Artemis: NASA's Journey to the Next Generation of Spacesuits"
-author: "Shamik Sinha"
-author_subtitle: "B.Tech."
-category: "tech-wonders"
+title: 'From Apollo to Artemis: NASA''s Journey to the Next Generation of Spacesuits'
+author: Shamik Sinha
+author_subtitle: B.Tech.
+category: tech-wonders
 tags:
-  - "space"
-  - "NASA"
-cover_image: "/legacy/blog/5b2d4dcbc1.webp"
-cover_image_alt: "From Apollo to Artemis: NASA's Journey to the Next Generation of Spacesuits"
+  - NASA
+  - space
+cover_image: /legacy/blog/5b2d4dcbc1.webp
+cover_image_alt: 'From Apollo to Artemis: NASA''s Journey to the Next Generation of Spacesuits'
 published: true
 featured: true
 ---

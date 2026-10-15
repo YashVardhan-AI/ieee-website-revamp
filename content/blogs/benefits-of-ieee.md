@@ -1,13 +1,13 @@
 ---
-title: "Benefits of IEEE"
-author: "Anjali Jain"
-author_subtitle: "M.Tech."
-category: "benefits-of-ieee"
+title: Benefits of IEEE
+author: Anjali Jain
+author_subtitle: M.Tech.
+category: benefits-of-ieee
 tags:
-  - "IEEE"
-  - "membership"
-cover_image: "/legacy/blog/049de53026.webp"
-cover_image_alt: "Benefits of IEEE"
+  - IEEE
+  - membership
+cover_image: /legacy/blog/049de53026.webp
+cover_image_alt: Benefits of IEEE
 published: true
 featured: true
 ---

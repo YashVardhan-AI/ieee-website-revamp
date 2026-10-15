@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 import unicodedata
 
@@ -104,9 +105,9 @@ def render_markdown(body: str) -> str:
     inject into the page: raw HTML in the source passes through the renderer
     but cannot survive the allow-list.
     """
-    html = _EXECUTABLE_BLOCK.sub("", _markdown.render(body or ""))
+    rendered = _EXECUTABLE_BLOCK.sub("", _markdown.render(body or ""))
     cleaned = bleach.clean(
-        html,
+        rendered,
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
         protocols=ALLOWED_PROTOCOLS,
@@ -118,18 +119,27 @@ def render_markdown(body: str) -> str:
 _EXTERNAL_LINK = re.compile(r'<a\s+(?![^>]*\brel=)([^>]*\bhref="https?://[^>]*)>', re.I)
 
 
-def _harden_external_links(html: str) -> str:
+def _harden_external_links(markup: str) -> str:
     """Make external links open in a new tab without leaking window access.
 
     Only links that do not already carry a `rel` are touched, so explicit
     author intent is preserved.
     """
-    return _EXTERNAL_LINK.sub(r'<a rel="noopener noreferrer" target="_blank" \1>', html)
+    return _EXTERNAL_LINK.sub(r'<a rel="noopener noreferrer" target="_blank" \1>', markup)
 
 
 def plain_text(markdown: str) -> str:
-    """Strip Markdown down to prose, for excerpts and meta descriptions."""
+    """Strip Markdown down to prose, for excerpts and meta descriptions.
+
+    Raw HTML is legal in Markdown, so tags (and the contents of executable
+    blocks) are removed as well; otherwise an excerpt would show markup as
+    literal text on cards and in search results.
+    """
     text = re.sub(r"```.*?```", " ", markdown or "", flags=re.S)
+    text = _EXECUTABLE_BLOCK.sub(" ", text)
+    text = re.sub(r"<!--.*?-->", " ", text, flags=re.S)
+    text = re.sub(r"</?[a-zA-Z][^>]*>", " ", text)
+    text = html.unescape(text)
     text = re.sub(r"!\[[^\]]*\]\([^)]*\)", " ", text)
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = re.sub(r"[#>*_`~|-]+", " ", text)

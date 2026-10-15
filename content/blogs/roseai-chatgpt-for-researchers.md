@@ -1,13 +1,13 @@
 ---
-title: "RoseAI: ChatGPT for Researchers"
-author: "Varun Bharti"
-author_subtitle: "B.Tech."
-category: "tech-affairs"
+title: 'RoseAI: ChatGPT for Researchers'
+author: Varun Bharti
+author_subtitle: B.Tech.
+category: tech-affairs
 tags:
-  - "AI"
-  - "research"
-cover_image: "/legacy/blog/d894fba982.webp"
-cover_image_alt: "RoseAI: ChatGPT for Researchers"
+  - AI
+  - research
+cover_image: /legacy/blog/d894fba982.webp
+cover_image_alt: 'RoseAI: ChatGPT for Researchers'
 published: true
 featured: false
 ---

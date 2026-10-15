@@ -707,6 +707,89 @@ def test_an_over_long_setting_key_is_rejected(client, auth_headers):
     assert "values" in response.json()["fields"]
 
 
+# ---------------------------------------------------------------------------
+# Publication dates and excerpts
+# ---------------------------------------------------------------------------
+
+
+def test_publishing_from_the_editor_dates_the_post(client, auth_headers):
+    from datetime import date
+
+    response = client.post(
+        "/api/v1/admin/blogs",
+        headers=auth_headers,
+        json={"title": "Live at once", "author_name": "A", "body": "Hello", "is_published": True},
+    )
+
+    assert response.json()["published_at"] == date.today().isoformat()
+
+
+def test_publishing_a_draft_through_an_edit_dates_it(client, auth_headers, db: Session):
+    from datetime import date
+
+    draft = make_post(db, slug="draft", published=False, published_at=None)
+
+    response = client.patch(
+        f"/api/v1/admin/blogs/{draft.id}", headers=auth_headers, json={"is_published": True}
+    )
+
+    assert response.json()["published_at"] == date.today().isoformat()
+
+
+def test_a_chosen_publication_date_is_kept(client, auth_headers):
+    response = client.post(
+        "/api/v1/admin/blogs",
+        headers=auth_headers,
+        json={
+            "title": "Backdated",
+            "author_name": "A",
+            "is_published": True,
+            "published_at": "2024-03-01",
+        },
+    )
+
+    assert response.json()["published_at"] == "2024-03-01"
+
+
+def test_a_derived_excerpt_is_not_stored_and_follows_the_body(client, auth_headers):
+    created = client.post(
+        "/api/v1/admin/blogs",
+        headers=auth_headers,
+        json={
+            "title": "Fruit",
+            "author_name": "A",
+            "body": "All about apples.",
+            "is_published": True,
+        },
+    ).json()
+    assert created["excerpt"] is None
+
+    client.patch(
+        f"/api/v1/admin/blogs/{created['id']}",
+        headers=auth_headers,
+        json={"body": "All about oranges."},
+    )
+
+    public = client.get(f"/api/v1/blogs/{created['slug']}").json()
+    assert public["excerpt"] == "All about oranges."
+
+
+def test_an_authored_excerpt_wins_over_the_body(client, auth_headers):
+    created = client.post(
+        "/api/v1/admin/blogs",
+        headers=auth_headers,
+        json={
+            "title": "Summarised",
+            "author_name": "A",
+            "body": "The long body.",
+            "excerpt": "A hand-written summary.",
+            "is_published": True,
+        },
+    ).json()
+
+    assert client.get(f"/api/v1/blogs/{created['slug']}").json()["excerpt"] == (
+        "A hand-written summary."
+    )
 
 
 # ---------------------------------------------------------------------------

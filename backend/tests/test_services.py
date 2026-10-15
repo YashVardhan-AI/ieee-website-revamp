@@ -169,6 +169,16 @@ def test_plain_text_drops_code_blocks_and_images():
     assert "Prose." in text
 
 
+def test_plain_text_drops_raw_html_and_script_contents():
+    text = plain_text(
+        "About apples. <script>alert(1)</script> <b>Bold</b> &amp; [link](https://x.y)"
+    )
+
+    assert "<" not in text
+    assert "alert" not in text
+    assert text == "About apples. Bold & link"
+
+
 def test_a_short_body_is_its_own_excerpt():
     assert build_excerpt("Short enough.") == "Short enough."
 

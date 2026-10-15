@@ -1,14 +1,14 @@
 ---
-title: "6G and the Need for Speed"
-author: "Utkarsh Venaik"
-author_subtitle: "B.Tech."
-category: "ieee-conference-minutes"
+title: 6G and the Need for Speed
+author: Utkarsh Venaik
+author_subtitle: B.Tech.
+category: ieee-conference-minutes
 tags:
-  - "networks"
-  - "6G"
-  - "telecom"
-cover_image: "/legacy/blog/70c76e8001.webp"
-cover_image_alt: "6G and the Need for Speed"
+  - 6G
+  - networks
+  - telecom
+cover_image: /legacy/blog/70c76e8001.webp
+cover_image_alt: 6G and the Need for Speed
 published: true
 featured: true
 ---
