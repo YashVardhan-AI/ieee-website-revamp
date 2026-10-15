@@ -284,15 +284,25 @@ Every variable is documented in the template; the ones that matter:
 | `POSTGRES_*` | Host, port, user, password, database |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Read by `just admin`; the password is argon2-hashed and never returned by the API |
 | `UPLOAD_DIR`, `MAX_UPLOAD_SIZE_MB` | Where admin images go, and the cap |
+| `MAX_REQUEST_BODY_MB` | Largest request body accepted (default 10). Keep it above the upload cap |
 | `EMAIL_BACKEND` | `console`, `smtp` or `none` |
 | `SMTP_*`, `EMAIL_FROM`, `EMAIL_TO` | Used when the backend is `smtp` |
 | `CORS_ORIGINS` | Only needed when the frontend is served from another origin |
+| `TRUSTED_PROXIES` | IPs/CIDRs of reverse proxies allowed to set `X-Forwarded-For`. See below |
 | `VITE_API_BASE_URL` | Build-time. Leave empty for the default same-origin setup |
 
 **The application refuses to start in production** with the development
-signing key, with a key under 32 characters, with a plain `http://` site URL,
-or with `EMAIL_BACKEND=smtp` and no SMTP host. Outside production these are
-warnings.
+signing key, with a key under 32 characters, with a plain `http://` or
+localhost site URL, with the development Postgres password, with sessions
+longer than 24 hours, or with `EMAIL_BACKEND=smtp` and no SMTP host. Outside
+production these are warnings.
+
+**Behind a reverse proxy, set `TRUSTED_PROXIES`.** Sign-in and contact-form
+rate limits are keyed by client IP. `X-Forwarded-For` is attacker-controlled,
+so it is only believed when the connection comes from a listed proxy; with the
+variable empty the socket address is used. If you put nginx or Caddy in front
+of the container and leave it empty, every visitor shares the proxy's address
+and therefore one rate-limit bucket.
 
 Secrets never go in git. In CI they come from GitHub's own token; in
 production, from your host's secret store.
