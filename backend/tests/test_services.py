@@ -358,3 +358,21 @@ def test_a_roster_term_gives_the_year_the_session_ends(term, expected):
 def test_an_unreadable_term_gives_no_year(term):
     # An empty field the branch can fill in beats a year we made up.
     assert graduation_year_from_term(term) is None
+
+
+# ---------------------------------------------------------------------------
+# Email
+# ---------------------------------------------------------------------------
+
+
+def test_a_line_break_in_the_subject_cannot_break_the_message():
+    from app.core.config import Settings
+    from app.services.email import _build_message
+
+    cfg = Settings(email_backend="smtp", smtp_host="localhost")
+    message = _build_message(
+        to="admin@example.com", subject="Hi from Bob\r\nBcc: x@example.com", body="x", cfg=cfg
+    )
+
+    assert message["Subject"] == "Hi from Bob Bcc: x@example.com"
+    assert message["Bcc"] is None
