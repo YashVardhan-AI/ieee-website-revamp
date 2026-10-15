@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 import sys
 from contextlib import asynccontextmanager
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -180,7 +180,9 @@ def _mount_frontend(app: FastAPI) -> None:
         name="assets",
     )
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    # HEAD as well as GET: uptime monitors and link checkers commonly probe
+    # with HEAD, and a 405 there reads as the site being down.
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_spa(request: Request, full_path: str) -> Response:
         # An unknown /api path is a client error, not a page.
         if full_path.startswith(("api/", "uploads/")):
@@ -189,6 +191,13 @@ def _mount_frontend(app: FastAPI) -> None:
         candidate = (static_dir / full_path).resolve()
         if full_path and candidate.is_file() and candidate.is_relative_to(static_dir.resolve()):
             return FileResponse(candidate)
+
+        # Client-side routes never contain a file extension (slugs are
+        # [a-z0-9-]), so a missing "/logo.png" is a missing file. Answering it
+        # with the HTML shell would hand an <img> a 200 it cannot render and
+        # hide broken links from checkers.
+        if PurePosixPath(full_path).suffix:
+            return JSONResponse({"detail": "Not found"}, status_code=404)
 
         del request
         return FileResponse(index_file, headers={"Cache-Control": "no-cache, must-revalidate"})
