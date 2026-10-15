@@ -6,13 +6,14 @@ import html
 import re
 import unicodedata
 
-import bleach
+import nh3
 from markdown_it import MarkdownIt
 
 _SLUG_STRIP = re.compile(r"[^a-z0-9]+")
-# Matched before sanitising so that script/style *contents* are dropped too.
-# bleach's allow-list removes the tags but keeps their text, which would
-# otherwise render a blocked script's source as article prose.
+# Elements whose *contents* must go too, not just the tags. An allow-list
+# alone strips a disallowed tag but keeps its text, which would show a blocked
+# script's source as article prose (or as excerpt text).
+_EXECUTABLE_TAGS = {"script", "style", "iframe", "object", "embed"}
 _EXECUTABLE_BLOCK = re.compile(r"<(script|style|iframe|object|embed)\b.*?</\1\s*>", re.S | re.I)
 _WORD = re.compile(r"\w+")
 
@@ -59,14 +60,14 @@ ALLOWED_TAGS = {
     "span",
 }
 ALLOWED_ATTRIBUTES = {
-    "a": ["href", "title", "rel", "target"],
-    "img": ["src", "alt", "title", "loading", "decoding"],
-    "span": ["class"],
-    "code": ["class"],
-    "th": ["align"],
-    "td": ["align"],
+    "a": {"href", "title", "rel", "target"},
+    "img": {"src", "alt", "title", "loading", "decoding"},
+    "span": {"class"},
+    "code": {"class"},
+    "th": {"align"},
+    "td": {"align"},
 }
-ALLOWED_PROTOCOLS = ["http", "https", "mailto"]
+ALLOWED_PROTOCOLS = {"http", "https", "mailto"}
 
 
 def slugify(value: str, *, max_length: int = 200) -> str:
@@ -105,13 +106,16 @@ def render_markdown(body: str) -> str:
     inject into the page: raw HTML in the source passes through the renderer
     but cannot survive the allow-list.
     """
-    rendered = _EXECUTABLE_BLOCK.sub("", _markdown.render(body or ""))
-    cleaned = bleach.clean(
-        rendered,
+    cleaned = nh3.clean(
+        _markdown.render(body or ""),
         tags=ALLOWED_TAGS,
+        clean_content_tags=_EXECUTABLE_TAGS,
         attributes=ALLOWED_ATTRIBUTES,
-        protocols=ALLOWED_PROTOCOLS,
-        strip=True,
+        url_schemes=ALLOWED_PROTOCOLS,
+        # nh3 would otherwise force rel="noopener noreferrer" onto every link,
+        # internal ones included, and overwrite a rel the author chose.
+        # External links get it below instead.
+        link_rel=None,
     )
     return _harden_external_links(cleaned)
 
