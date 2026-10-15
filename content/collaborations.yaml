@@ -1,4 +1,6 @@
 # Industry collaborations. List order is display order.
+# Optional per entry: `collaboration_type` (Sponsor, Workshop partner,
+# Speaker, Prize partner) and `year` - the previous site never recorded them.
 # Edit here, then `just content-import collaborations`. Edit in the dashboard,
 # then `just dbsync collaborations` to pull it back - which rewrites this file.
 

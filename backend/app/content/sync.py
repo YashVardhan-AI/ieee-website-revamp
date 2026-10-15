@@ -691,7 +691,11 @@ class ContentSync:
             values,
             header=_header(
                 "Editable site copy and links.\n"
-                "Also editable in the admin dashboard under Settings.",
+                "Also editable in the admin dashboard under Settings.\n"
+                "`hero_heading` takes two bits of markup: a line break breaks the line,\n"
+                "and *asterisks* around a word give it the halftone-dot treatment.\n"
+                "`hero_meta` and `hero_status` are hidden while empty.\n"
+                'Perks: one per line, as "Short title | the sentence under it".',
                 "settings",
             ),
         )
@@ -707,7 +711,11 @@ class ContentSync:
                 _compact({"name": c.name, "slug": c.slug, "description": c.description})
                 for c in rows
             ],
-            header=_header("Blog categories. List order is display order.", "blogs"),
+            header=_header(
+                "Blog categories. List order is display order on /blogs.\n"
+                "A post's `category:` must match one of these slugs.",
+                "blogs",
+            ),
         )
         report.record("blog category", "updated")
 
@@ -812,7 +820,11 @@ class ContentSync:
                 )
                 for a in alumni
             ],
-            header=_header("Alumni. Only publicly shareable details belong here.", "alumni"),
+            header=_header(
+                "Alumni. Only publicly shareable details belong here.\n"
+                "Graduation years are blank where the previous site did not record them.",
+                "alumni",
+            ),
         )
         for _ in alumni:
             report.record("alumnus", "updated")
@@ -839,7 +851,10 @@ class ContentSync:
                 for c in rows
             ],
             header=_header(
-                "Industry collaborations. List order is display order.", "collaborations"
+                "Industry collaborations. List order is display order.\n"
+                "Optional per entry: `collaboration_type` (Sponsor, Workshop partner,\n"
+                "Speaker, Prize partner) and `year` - the previous site never recorded them.",
+                "collaborations",
             ),
         )
         for _ in rows:
@@ -869,7 +884,12 @@ class ContentSync:
                 )
                 for e in events
             ],
-            header=_header("Events, newest first. Dates are YYYY-MM-DD.", "events"),
+            header=_header(
+                "Events, newest first. Dates are YYYY-MM-DD.\n"
+                "`is_featured: true` surfaces an event on the landing page;\n"
+                "`ieee_day_year: 2026` lists it under that IEEE Day edition.",
+                "events",
+            ),
         )
         for _ in events:
             report.record("event", "updated")
@@ -910,7 +930,12 @@ class ContentSync:
                 )
                 for e in editions
             ],
-            header=_header("IEEE Day editions, newest first.", "ieee-day"),
+            header=_header(
+                "IEEE Day editions, newest first.\n"
+                "`stats`, `highlights` and `gallery` are optional; the page omits any\n"
+                "section with no content, so a partial entry still looks intentional.",
+                "ieee-day",
+            ),
         )
         for _ in editions:
             report.record("ieee day", "updated")

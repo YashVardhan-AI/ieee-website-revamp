@@ -1,4 +1,6 @@
 # IEEE Day editions, newest first.
+# `stats`, `highlights` and `gallery` are optional; the page omits any
+# section with no content, so a partial entry still looks intentional.
 # Edit here, then `just content-import ieee-day`. Edit in the dashboard,
 # then `just dbsync ieee-day` to pull it back - which rewrites this file.
 

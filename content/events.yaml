@@ -1,4 +1,6 @@
 # Events, newest first. Dates are YYYY-MM-DD.
+# `is_featured: true` surfaces an event on the landing page;
+# `ieee_day_year: 2026` lists it under that IEEE Day edition.
 # Edit here, then `just content-import events`. Edit in the dashboard,
 # then `just dbsync events` to pull it back - which rewrites this file.
 

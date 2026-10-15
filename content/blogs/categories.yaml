@@ -1,4 +1,5 @@
-# Blog categories. List order is display order.
+# Blog categories. List order is display order on /blogs.
+# A post's `category:` must match one of these slugs.
 # Edit here, then `just content-import blogs`. Edit in the dashboard,
 # then `just dbsync blogs` to pull it back - which rewrites this file.
 

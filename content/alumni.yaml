@@ -1,4 +1,5 @@
 # Alumni. Only publicly shareable details belong here.
+# Graduation years are blank where the previous site did not record them.
 # Edit here, then `just content-import alumni`. Edit in the dashboard,
 # then `just dbsync alumni` to pull it back - which rewrites this file.
 

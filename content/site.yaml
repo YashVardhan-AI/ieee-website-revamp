@@ -1,5 +1,9 @@
 # Editable site copy and links.
 # Also editable in the admin dashboard under Settings.
+# `hero_heading` takes two bits of markup: a line break breaks the line,
+# and *asterisks* around a word give it the halftone-dot treatment.
+# `hero_meta` and `hero_status` are hidden while empty.
+# Perks: one per line, as "Short title | the sentence under it".
 # Edit here, then `just content-import settings`. Edit in the dashboard,
 # then `just dbsync settings` to pull it back - which rewrites this file.
 

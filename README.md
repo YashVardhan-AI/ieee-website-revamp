@@ -201,6 +201,12 @@ rather than leaving you to check.
   typo like `positon:` is caught immediately.
 - `published: false` in a post's frontmatter keeps it a draft; drafts are
   invisible to the public API entirely, not merely unlinked.
+- A post's `excerpt:` is optional. Leave it out and the opening of the body is
+  used, worked out each time the post is served - so it follows edits to the
+  body, and an export never writes it back into the file as if you had.
+- Publishing a post from the dashboard dates it that day if it has no date
+  yet. A file's `date:` is taken as written, so a file without one stays
+  undated (an import cannot invent a date without changing it on every run).
 
 ---
 
@@ -585,9 +591,11 @@ imported images were re-encoded to WebP at display sizes, taking 94 MB of
 originals down to 6.9 MB.
 
 **Security.** Markdown is rendered and then sanitised against an allow-list
-server-side, so post bodies are safe to inject. Uploads are validated by
-decoding the image rather than trusting its name or type, and the stored
-filename is generated, never taken from the client. SVG uploads are refused —
+server-side (with [nh3](https://github.com/messense/nh3)), so post bodies are
+safe to inject. Uploads are validated by decoding the image rather than
+trusting its name or type, and the stored filename is generated, never taken
+from the client. Still images are re-encoded without their EXIF metadata, so a
+phone photo does not publish where it was taken. SVG uploads are refused —
 an SVG is an executable document. Strict security headers including a CSP
 that needs no external host, since every asset is served from this origin.
 
@@ -607,8 +615,15 @@ Things a future maintainer should know are deliberately unfinished:
   previous site had no IEEE Day page to import from. Sections with no content
   are omitted rather than shown empty.
 - **Collaboration details.** Names, logos and links were imported; the *type*
-  of each collaboration and the year it happened were never recorded, so
-  those fields start commented out in `content/collaborations.yaml`.
+  of each collaboration and the year it happened were never recorded. Add
+  `collaboration_type` and `year` to an entry in `content/collaborations.yaml`
+  (the file's header lists them) or set them in the dashboard.
+- **Event to double-check.** "IEEE: Inauguration 2025" is dated 2024-11-05 and
+  its poster is named `ieee-inaugration-2024.webp`, so it is filed under 2024.
+  Either the title or the date is wrong; nothing here can tell which.
+- **Benefits of IEEE cover.** The cover imported for that post is a small
+  logo scaled up, and looks soft at article width. It needs a better source
+  image.
 - **Rate limiting is in-process.** Fine for a single container. Running more
   than one replica needs this moved to Redis, since each process currently
   keeps its own counters.
