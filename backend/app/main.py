@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.engine import make_url
 from starlette.requests import Request
 from starlette.responses import Response
 
@@ -45,6 +46,17 @@ Everything under `/admin` requires the administrator's bearer token.
 """
 
 
+def _uses_default_database_password(cfg: Settings) -> bool:
+    """Whether the database is reached with the development password.
+
+    DATABASE_URL overrides the POSTGRES_* parts, so it is the URL's password
+    that matters when one is set.
+    """
+    if cfg.database_url:
+        return make_url(cfg.sqlalchemy_url).password == INSECURE_DEFAULT_POSTGRES_PASSWORD
+    return cfg.postgres_password == INSECURE_DEFAULT_POSTGRES_PASSWORD
+
+
 def check_production_config(cfg: Settings) -> list[str]:
     """Configuration mistakes that must not reach production.
 
@@ -65,7 +77,7 @@ def check_production_config(cfg: Settings) -> list[str]:
             problems.append("SITE_URL still points at localhost. Set the public https URL.")
         elif cfg.site_url.startswith("http://"):
             problems.append("SITE_URL should use https:// in production.")
-        if cfg.database_url is None and cfg.postgres_password == INSECURE_DEFAULT_POSTGRES_PASSWORD:
+        if _uses_default_database_password(cfg):
             problems.append("POSTGRES_PASSWORD is still the development default.")
         if cfg.access_token_expire_minutes > 1440:
             problems.append("ACCESS_TOKEN_EXPIRE_MINUTES is longer than 24 hours.")
