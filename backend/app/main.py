@@ -77,7 +77,8 @@ def check_production_config(cfg: Settings) -> list[str]:
             problems.append("SITE_URL still points at localhost. Set the public https URL.")
         elif cfg.site_url.startswith("http://"):
             problems.append("SITE_URL should use https:// in production.")
-        if _uses_default_database_password(cfg):
+
+        if cfg.database_url is None and cfg.postgres_password == INSECURE_DEFAULT_POSTGRES_PASSWORD:
             problems.append("POSTGRES_PASSWORD is still the development default.")
         if cfg.access_token_expire_minutes > 1440:
             problems.append("ACCESS_TOKEN_EXPIRE_MINUTES is longer than 24 hours.")
